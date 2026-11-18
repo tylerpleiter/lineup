@@ -141,6 +141,26 @@ A group draws a dashed box around its members. A note is free text, either at `x
 
 Blocks without `x`/`y` are placed by ELK's layered algorithm, left to right, with I/Q pairs kept straight. LO, clock and control sources are placed beside the port they feed. Blocks that already have coordinates stay where they are.
 
+## Embedded source in exported images
+
+SVG and PNG exports carry the full `.sig.json`, so an image pasted into an issue, wiki or doc still holds the exact diagram. Lineup reopens these images directly (Open or drag and drop). To read one in a script or as an agent:
+
+- **SVG:** the JSON is the text of `<metadata id="sig-source" data-format="sig.json">`, wrapped in `<![CDATA[…]]>`.
+  ```python
+  import re
+  svg = open("rx.svg", encoding="utf-8").read()
+  body = re.search(r'<metadata id="sig-source"[^>]*>(.*?)</metadata>', svg, re.S).group(1)
+  source = "".join(re.findall(r"<!\[CDATA\[(.*?)\]\]>", body, re.S))
+  ```
+- **PNG:** the JSON is in an uncompressed `iTXt` chunk with the keyword `sig.json`.
+  ```python
+  from PIL import Image
+  source = Image.open("rx.png").text["sig.json"]
+  ```
+  `exiftool -sig.json rx.png` also prints it.
+
+The embedded copy includes positions, so reopening it restores the layout exactly. "Copy as image" puts a PNG on the clipboard, but browsers strip extra PNG data from clipboard images; use an exported file when the source needs to travel with the image.
+
 ## Rules for agents
 
 1. Use types and port names from [SYMBOLS.md](SYMBOLS.md). Aliases like `lna`, `pa`, `saw`, `pll`, `fir` are fine; Lineup saves them as the core type plus a label.

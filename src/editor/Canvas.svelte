@@ -401,7 +401,7 @@
   <QuickAdd />
   {#if !ex.instances.length}
     <div class="empty">
-      <p>Drag a block from the left, or drop / paste a <code>.sig.json</code> file.</p>
+      <p>Drag a block from the left, or drop a <code>.sig.json</code> or an SVG/PNG exported from Lineup.</p>
     </div>
   {/if}
 </div>

@@ -7,6 +7,7 @@
   import { download, pickFile, slug } from './io/files';
   import { buildPDF, buildPNG, buildSVG } from './io/export';
   import { loadAutosave } from './io/autosave';
+  import { sourceFromFile } from './io/embed';
   import zeroIf from '../examples/zero-if-rx.sig.json?raw';
   import iqTx from '../examples/iq-tx.sig.json?raw';
   import superhet from '../examples/superhet-ddc.sig.json?raw';
@@ -18,9 +19,16 @@
   const errors = $derived(editor.expanded.issues.filter((i) => i.level === 'error').length);
   const warnings = $derived(editor.expanded.issues.filter((i) => i.level === 'warning').length);
 
+  /** Open a .sig.json, or an SVG/PNG exported from Lineup (its diagram is embedded). */
+  async function openFile(f: File) {
+    const r = await sourceFromFile(f);
+    if ('error' in r) editor.notify(r.error, 'error');
+    else await editor.loadText(r.text);
+  }
+
   async function open() {
     const f = await pickFile();
-    if (f) await editor.loadText(await f.text());
+    if (f) await openFile(f);
   }
 
   function save() {
@@ -32,7 +40,8 @@
     menu = null;
     const b = editor.bounds();
     if (!b) return editor.notify('Nothing to export', 'warning');
-    const svg = buildSVG(b);
+    const source = serialize(editor.snapshot());
+    const svg = await buildSVG(b, { source });
     const name = slug(editor.doc.title);
     if (kind === 'svg') download(`${name}.svg`, svg, 'image/svg+xml');
     else if (kind === 'pdf') {
@@ -44,13 +53,13 @@
     }
     else if (kind === 'copy') {
       try {
-        const png = await buildPNG(svg, 2);
+        const png = await buildPNG(svg, 2, true, source);
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': png, 'text/plain': new Blob([svg], { type: 'text/plain' }) })]);
         editor.notify('Copied as image');
       } catch {
         editor.notify("Clipboard isn't available here; use Export SVG/PNG", 'error');
       }
-    } else download(`${name}.png`, await buildPNG(svg, kind === 'png4' ? 4 : 2));
+    } else download(`${name}.png`, await buildPNG(svg, kind === 'png4' ? 4 : 2, true, source));
   }
 
   function newDoc() {
@@ -126,7 +135,7 @@
     const f = e.dataTransfer?.files?.[0];
     if (!f) return;
     e.preventDefault();
-    await editor.loadText(await f.text());
+    await openFile(f);
   }
 
   $effect(() => {

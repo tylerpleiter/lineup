@@ -17,8 +17,9 @@ It runs entirely client-side. There is no server and no account.
 - **Fast editing:** drop a block onto a wire to splice it in, press `/` to add a block by name, or press `Tab` to add the next block in a chain, already connected.
 - **Annotations:** wire labels, dashed group boxes and free-text notes.
 - **Properties:** gain, NF, IP3, P1dB, frequency, bandwidth, bits and more, stored as numbers in base units. Any property can be shown under its symbol.
+- **Consistent text:** diagrams use the bundled Inter font, embedded in SVG, PNG and PDF exports, so they look the same on every machine.
 - **Black-and-white output:** line style carries meaning (dashed for LO, dotted for control, heavy for digital buses), so diagrams print well. A color theme is available for slides.
-- **Export:** SVG, vector PDF, PNG (2×/4×), copy as image.
+- **Export:** SVG, vector PDF, PNG (2×/4×), copy as image. SVG and PNG exports embed the diagram source (like draw.io), so an image pasted into an issue or doc can be reopened in Lineup, or read exactly by a script or AI agent.
 
 ## Quick start
 
@@ -46,7 +47,7 @@ npm run build      # static site in dist/
 | Auto-layout | `L` (applies to the selection only when 2+ blocks are selected) |
 | Fit to view | `0` |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` |
-| Open a file | Open, drag a `.sig.json` onto the window, or paste JSON with `Ctrl+V` |
+| Open a file | Open, drag a `.sig.json` (or an SVG/PNG exported from Lineup) onto the window, or paste JSON with `Ctrl+V` |
 
 Your work is autosaved in the browser.
 
@@ -91,4 +92,4 @@ New symbols are the easiest way to help. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT
+MIT. Lineup bundles the [Inter](https://rsms.me/inter) typeface (SIL Open Font License 1.1, see `src/assets/fonts/OFL.txt`), which is embedded in exported files.

@@ -51,6 +51,10 @@ Rules that keep diagrams consistent:
 
 Then run `npm run symbols:doc` to regenerate `docs/SYMBOLS.md`.
 
+## Fonts
+
+`src/assets/fonts` holds Inter cut down to the characters diagrams use (Latin, Greek, arrows, math operators, super/subscripts). If a symbol or label needs a character outside that set, add its range in `scripts/build-fonts.py` and rebuild (instructions at the top of the script).
+
 ## Code layout
 
 The model (`src/model`) is plain TypeScript with no UI dependencies and is unit-tested. The SVG is a pure function of the model. If you change the file format, update the schema, `docs/FORMAT.md` and the tests together.

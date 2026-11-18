@@ -19,7 +19,7 @@ export interface Theme {
 export const MONO: Theme = {
   stroke: '#000',
   background: '#fff',
-  font: "Helvetica, Arial, 'Liberation Sans', sans-serif",
+  font: "Inter, Helvetica, Arial, 'Liberation Sans', sans-serif",
   body: 1.5,
   domains: {
     signal: { width: 1.5 },

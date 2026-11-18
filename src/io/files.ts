@@ -10,7 +10,7 @@ export function download(name: string, data: string | Blob, type = 'application/
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function pickFile(accept = '.json,.sig.json,application/json'): Promise<File | null> {
+export function pickFile(accept = '.json,.sig.json,application/json,.svg,image/svg+xml,.png,image/png'): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';

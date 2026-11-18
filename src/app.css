@@ -55,3 +55,19 @@ button.small:hover {
 button.small.danger {
   color: #c62a2f;
 }
+
+/* Inter for diagrams (bundled; exports embed it too). */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Italic.woff2') format('woff2');
+}
