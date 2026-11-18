@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lineup-rf/lineup/schema/lineup.schema.json",
+  "title": "Lineup diagram",
+  "description": "An RF/DSP signal-chain block diagram. Only block id/type and connection from/to are required; blocks without x/y are placed by auto-layout.",
+  "type": "object",
+  "required": [
+    "lineup",
+    "blocks",
+    "connections"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "lineup": {
+      "type": "string",
+      "description": "Format version.",
+      "const": "0.1"
+    },
+    "title": {
+      "type": "string"
+    },
+    "theme": {
+      "enum": [
+        "mono",
+        "color"
+      ],
+      "default": "mono"
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hops": {
+          "type": "boolean",
+          "description": "Horizontal wires hop over crossing wires. Default true."
+        },
+        "pmMarks": {
+          "type": "boolean",
+          "description": "Label differential pins + and −. Default false."
+        }
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/block"
+      }
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/connection"
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/group"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/note"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"
+    },
+    "ref": {
+      "type": "string",
+      "description": "blockId.port, or blockId:i.port / blockId:q.port to address one rail of an I/Q pair.",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*(:[iq])?\\.[A-Za-z0-9_-]+$"
+    },
+    "domain": {
+      "enum": [
+        "signal",
+        "lo",
+        "clk",
+        "digital",
+        "ctrl",
+        "rf",
+        "if",
+        "bb"
+      ],
+      "description": "Line style. signal = the main RF/IF/baseband path (default). rf, if and bb are accepted from older files and mean signal."
+    },
+    "params": {
+      "type": "object",
+      "description": "Reserved keys are numbers in base units: gain/nf/il in dB, oip3/iip3/p1db in dBm, freq/fc/bw in Hz, fs in S/s, bits and ratio as counts. Other keys are free.",
+      "properties": {
+        "gain": {
+          "type": "number"
+        },
+        "nf": {
+          "type": "number"
+        },
+        "oip3": {
+          "type": "number"
+        },
+        "iip3": {
+          "type": "number"
+        },
+        "p1db": {
+          "type": "number"
+        },
+        "il": {
+          "type": "number"
+        },
+        "freq": {
+          "type": "number"
+        },
+        "fc": {
+          "type": "number"
+        },
+        "bw": {
+          "type": "number"
+        },
+        "bits": {
+          "type": "integer"
+        },
+        "fs": {
+          "type": "number"
+        },
+        "ratio": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": {
+        "type": [
+          "number",
+          "string"
+        ]
+      }
+    },
+    "port": {
+      "type": "object",
+      "required": [
+        "name",
+        "side",
+        "dir"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "side": {
+          "enum": [
+            "l",
+            "r",
+            "t",
+            "b"
+          ]
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dir": {
+          "enum": [
+            "in",
+            "out",
+            "bi"
+          ]
+        },
+        "signal": {
+          "enum": [
+            "se",
+            "diff"
+          ]
+        },
+        "domain": {
+          "$ref": "#/$defs/domain"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "rail": {
+          "enum": [
+            "i",
+            "q"
+          ],
+          "description": "Port carries one I/Q rail. Ports named i/q are rail ports implicitly."
+        },
+        "lead": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "block": {
+      "type": "object",
+      "required": [
+        "id",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "type": "string",
+          "description": "Symbol id, see docs/SYMBOLS.md. Unknown types load as custom blocks."
+        },
+        "label": {
+          "type": "string"
+        },
+        "x": {
+          "type": "integer",
+          "description": "Grid units."
+        },
+        "y": {
+          "type": "integer",
+          "description": "Grid units."
+        },
+        "rot": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        },
+        "flip": {
+          "type": "boolean"
+        },
+        "variant": {
+          "type": "string",
+          "description": "Symbol variant, e.g. \"adjustable\" (adds a tuning arrow). See docs/SYMBOLS.md."
+        },
+        "iq": {
+          "type": "boolean",
+          "description": "Drawn as a linked I and Q pair."
+        },
+        "iqOverride": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "i": {
+              "$ref": "#/$defs/railOverride"
+            },
+            "q": {
+              "$ref": "#/$defs/railOverride"
+            }
+          }
+        },
+        "signal": {
+          "enum": [
+            "se",
+            "diff"
+          ]
+        },
+        "params": {
+          "$ref": "#/$defs/params"
+        },
+        "show": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/port"
+          }
+        },
+        "icon": {
+          "type": "string",
+          "description": "Custom blocks only: SVG path data drawn inside the box, in grid units."
+        },
+        "size": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "railOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "params": {
+          "$ref": "#/$defs/params"
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/ref"
+        },
+        "to": {
+          "$ref": "#/$defs/ref"
+        },
+        "label": {
+          "type": "string"
+        },
+        "domain": {
+          "$ref": "#/$defs/domain"
+        },
+        "via": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": [
+        "id",
+        "members"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "note": {
+      "type": "object",
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        },
+        "near": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

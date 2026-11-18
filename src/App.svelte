@@ -2,6 +2,7 @@
   import Canvas from './editor/Canvas.svelte';
   import Palette from './ui/Palette.svelte';
   import Properties from './ui/Properties.svelte';
+  import AgentsDialog from './ui/AgentsDialog.svelte';
   import { editor } from './editor/store.svelte';
   import { serialize, emptyDoc } from './model/doc';
   import { download, pickFile, slug } from './io/files';
@@ -15,6 +16,7 @@
   const EXAMPLES: Record<string, string> = { 'Zero-IF receiver': zeroIf, 'Superhet + DDC receiver': superhet, 'I/Q transmitter': iqTx };
 
   let menu = $state<'export' | 'examples' | null>(null);
+  let agents = $state(false);
 
   const errors = $derived(editor.expanded.issues.filter((i) => i.level === 'error').length);
   const warnings = $derived(editor.expanded.issues.filter((i) => i.level === 'warning').length);
@@ -148,6 +150,8 @@
 
 <svelte:window onkeydown={onKey} onpaste={onPaste} ondragover={onDragOver} ondrop={onDrop} onclick={(e) => !(e.target as HTMLElement).closest('.menu-wrap') && (menu = null)} />
 
+{#if agents}<AgentsDialog onclose={() => (agents = false)} />{/if}
+
 <div class="app">
   <header>
     <div class="brand">
@@ -188,6 +192,8 @@
       <span class="sep"></span>
       <button onclick={() => editor.autoLayout()} title="Auto-layout (L)">Auto-layout</button>
       <button onclick={() => editor.fit()} title="Fit (0)">Fit</button>
+      <span class="sep"></span>
+      <button onclick={() => (agents = true)} title="Use Lineup with Claude Code, Gemini CLI and other AI agents">AI agents</button>
     </nav>
   </header>
   <main>

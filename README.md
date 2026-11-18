@@ -71,6 +71,10 @@ Your work is autosaved in the browser.
 
 Coordinates are optional, so a topology-only file like this one is valid; Lineup places the blocks. For the full format see [docs/FORMAT.md](docs/FORMAT.md), and for every block type and port name see [docs/SYMBOLS.md](docs/SYMBOLS.md). The JSON Schema is in [schema/lineup.schema.json](schema/lineup.schema.json).
 
+## Use with AI agents
+
+[`skills/sig-diagrams`](skills/sig-diagrams) is an agent skill that teaches Claude Code, Gemini CLI and similar agents to create, edit, check and explain `.sig.json` diagrams. It includes `check.py` (the same connection checks as the app) and `extract.py` (pulls the diagram out of an exported SVG/PNG). Download it from the **AI agents** button in the app, or copy the folder into your project's `.claude/skills/`.
+
 ## Project layout
 
 ```
@@ -83,6 +87,7 @@ src/ui/       palette and properties panel
 symbols/      one JSON file per symbol
 schema/       JSON Schema for .sig.json
 docs/         format and symbol reference
+skills/       agent skill (sig-diagrams) for Claude Code, Gemini CLI, …
 examples/     sample diagrams
 ```
 

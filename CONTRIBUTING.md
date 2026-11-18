@@ -51,6 +51,10 @@ Rules that keep diagrams consistent:
 
 Then run `npm run symbols:doc` to regenerate `docs/SYMBOLS.md`.
 
+## Agent skill
+
+`skills/sig-diagrams` carries copies of `docs/FORMAT.md`, `docs/SYMBOLS.md`, the schema and the symbol port list. After changing any of those, run `npm run skill:sync`; the tests fail if the skill is out of date. If you change a connection rule in `src/model/expand.ts`, mirror it in `skills/sig-diagrams/scripts/check.py`. The tests compare the two on a set of diagrams.
+
 ## Fonts
 
 `src/assets/fonts` holds Inter cut down to the characters diagrams use (Latin, Greek, arrows, math operators, super/subscripts). If a symbol or label needs a character outside that set, add its range in `scripts/build-fonts.py` and rebuild (instructions at the top of the script).

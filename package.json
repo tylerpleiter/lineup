@@ -6,12 +6,15 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "predev": "node scripts/pack-skill.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/pack-skill.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
-    "symbols:doc": "node scripts/gen-symbols-doc.mjs"
+    "symbols:doc": "node scripts/gen-symbols-doc.mjs",
+    "skill:sync": "node scripts/sync-skill.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
