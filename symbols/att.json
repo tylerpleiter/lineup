@@ -1,0 +1,39 @@
+{
+  "id": "att",
+  "name": "Attenuator",
+  "category": "gain",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,1.8 H5 V4.2 H1 Z M1,3 H1.9 L2.15,2.4 L2.65,3.6 L3.15,2.4 L3.65,3.6 L3.9,3 H5",
+  "mask": "M1,1.8 H5 V4.2 H1 Z",
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 3,
+      "dir": "in",
+      "signal": "se"
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "at": 3,
+      "dir": "out",
+      "signal": "se",
+      "diffLead": 2
+    }
+  ],
+  "params": {
+    "il": null
+  },
+  "label": "",
+  "variants": {
+    "adjustable": {
+      "name": "Adjustable",
+      "body": "M1.3,5.3 L4.28,1.26",
+      "fill": "M4.7,0.7 L4.53,1.44 L4.04,1.09 Z"
+    }
+  }
+}

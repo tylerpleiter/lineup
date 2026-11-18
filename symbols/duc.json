@@ -1,0 +1,49 @@
+{
+  "id": "duc",
+  "name": "Digital upconverter",
+  "category": "dsp",
+  "size": [
+    6,
+    12
+  ],
+  "body": "M1,1 H5 V11 H1 Z",
+  "mask": "M1,1 H5 V11 H1 Z",
+  "texts": [
+    {
+      "text": "DUC",
+      "at": [
+        3,
+        6
+      ],
+      "size": 1
+    }
+  ],
+  "ports": [
+    {
+      "name": "i",
+      "side": "l",
+      "at": 3,
+      "dir": "in",
+      "signal": "se"
+    },
+    {
+      "name": "q",
+      "side": "l",
+      "at": 9,
+      "dir": "in",
+      "signal": "se"
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "at": 6,
+      "dir": "out",
+      "signal": "se"
+    }
+  ],
+  "params": {
+    "freq": null,
+    "ratio": null
+  },
+  "label": ""
+}

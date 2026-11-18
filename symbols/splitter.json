@@ -1,0 +1,40 @@
+{
+  "id": "splitter",
+  "name": "Splitter / combiner",
+  "category": "passive",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,1 H5 V5 H1 Z M1,3 H2.2 L3.2,2 H5 M2.2,3 L3.2,4 H5",
+  "fill": "M2,3 A0.2,0.2 0 1 1 2.4,3 A0.2,0.2 0 1 1 2,3 Z",
+  "mask": "M1,1 H5 V5 H1 Z",
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 3,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "o1",
+      "side": "r",
+      "at": 2,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "o2",
+      "side": "r",
+      "at": 4,
+      "dir": "bi",
+      "signal": "se"
+    }
+  ],
+  "params": {
+    "il": null
+  },
+  "label": "",
+  "description": "Splitter or combiner (all ports bidirectional; flip it to combine)."
+}

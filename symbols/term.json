@@ -1,0 +1,21 @@
+{
+  "id": "term",
+  "name": "Termination",
+  "category": "passive",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,3 H1.8 M1.8,2.5 H3.8 V3.5 H1.8 Z M3.8,3 H4.5 V4 M3.9,4 H5.1 M4.15,4.4 H4.85 M4.35,4.8 H4.65",
+  "ports": [
+    {
+      "name": "io",
+      "side": "l",
+      "at": 3,
+      "dir": "bi",
+      "signal": "se"
+    }
+  ],
+  "params": {},
+  "label": ""
+}

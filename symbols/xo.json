@@ -1,0 +1,25 @@
+{
+  "id": "xo",
+  "name": "Crystal oscillator",
+  "category": "source",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,1 H5 V5 H1 Z M2.2,2 V4 M3.8,2 V4 M2.55,1.7 H3.45 V4.3 H2.55 Z M1.5,3 H2.2 M3.8,3 H4.5",
+  "mask": "M1,1 H5 V5 H1 Z",
+  "ports": [
+    {
+      "name": "out",
+      "side": "r",
+      "at": 3,
+      "dir": "out",
+      "signal": "se",
+      "domain": "clk"
+    }
+  ],
+  "params": {
+    "freq": null
+  },
+  "label": "XO"
+}

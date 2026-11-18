@@ -1,0 +1,62 @@
+{
+  "id": "spnt",
+  "name": "SP4T switch",
+  "category": "passive",
+  "size": [
+    6,
+    8
+  ],
+  "body": "M1,4 H2 M2,4 L4.25,1.45 M4.25,1 A0.25,0.25 0 1 1 4.75,1 A0.25,0.25 0 1 1 4.25,1 Z M4.75,1 H5 M4.25,3 A0.25,0.25 0 1 1 4.75,3 A0.25,0.25 0 1 1 4.25,3 Z M4.75,3 H5 M4.25,5 A0.25,0.25 0 1 1 4.75,5 A0.25,0.25 0 1 1 4.25,5 Z M4.75,5 H5 M4.25,7 A0.25,0.25 0 1 1 4.75,7 A0.25,0.25 0 1 1 4.25,7 Z M4.75,7 H5",
+  "fill": "M1.78,4 A0.22,0.22 0 1 1 2.22,4 A0.22,0.22 0 1 1 1.78,4 Z",
+  "ports": [
+    {
+      "name": "c",
+      "side": "l",
+      "at": 4,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "t1",
+      "side": "r",
+      "at": 1,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "t2",
+      "side": "r",
+      "at": 3,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "t3",
+      "side": "r",
+      "at": 5,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "t4",
+      "side": "r",
+      "at": 7,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "ctrl",
+      "side": "b",
+      "at": 3,
+      "dir": "in",
+      "signal": "se",
+      "domain": "ctrl",
+      "optional": true,
+      "lead": 3
+    }
+  ],
+  "params": {
+    "il": null
+  },
+  "label": ""
+}

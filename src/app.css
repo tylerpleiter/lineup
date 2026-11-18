@@ -1,0 +1,57 @@
+:root {
+  --text: #1c2024;
+  --muted: #687076;
+  --line: #e3e6ea;
+  --panel: #f8f9fa;
+  --hover: #eef0f3;
+  --accent: #2f6feb;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  font-size: 13px;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+input,
+select {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  min-width: 0;
+}
+input:focus,
+select:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color: var(--accent);
+}
+input[type='checkbox'] {
+  padding: 0;
+  margin: 0;
+}
+button.small {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+button.small:hover {
+  background: var(--hover);
+}
+button.small.danger {
+  color: #c62a2f;
+}

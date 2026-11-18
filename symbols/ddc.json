@@ -1,0 +1,49 @@
+{
+  "id": "ddc",
+  "name": "Digital downconverter",
+  "category": "dsp",
+  "size": [
+    6,
+    12
+  ],
+  "body": "M1,1 H5 V11 H1 Z",
+  "mask": "M1,1 H5 V11 H1 Z",
+  "texts": [
+    {
+      "text": "DDC",
+      "at": [
+        3,
+        6
+      ],
+      "size": 1
+    }
+  ],
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 6,
+      "dir": "in",
+      "signal": "se"
+    },
+    {
+      "name": "i",
+      "side": "r",
+      "at": 3,
+      "dir": "out",
+      "signal": "se"
+    },
+    {
+      "name": "q",
+      "side": "r",
+      "at": 9,
+      "dir": "out",
+      "signal": "se"
+    }
+  ],
+  "params": {
+    "freq": null,
+    "ratio": null
+  },
+  "label": ""
+}

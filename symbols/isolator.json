@@ -1,0 +1,32 @@
+{
+  "id": "isolator",
+  "name": "Isolator",
+  "category": "passive",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,1 H5 V5 H1 Z M1.8,3 H3.6",
+  "fill": "M4.3,3 L3.5,2.6 L3.5,3.4 Z",
+  "mask": "M1,1 H5 V5 H1 Z",
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 3,
+      "dir": "in",
+      "signal": "se"
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "at": 3,
+      "dir": "out",
+      "signal": "se"
+    }
+  ],
+  "params": {
+    "il": null
+  },
+  "label": ""
+}

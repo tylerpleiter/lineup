@@ -1,0 +1,30 @@
+{
+  "lineup": "0.1",
+  "title": "Direct-conversion I/Q transmitter",
+  "blocks": [
+    {"id": "fpga", "type": "custom", "label": "FPGA", "ports": [
+      {"name": "i", "side": "r", "dir": "out", "domain": "digital", "width": 16},
+      {"name": "q", "side": "r", "dir": "out", "domain": "digital", "width": 16}
+    ], "size": [8, 12]},
+    {"id": "dac", "type": "dac", "params": {"bits": 16, "fs": 245.76e6}, "show": ["bits"]},
+    {"id": "lpf", "type": "lpf", "params": {"fc": 50e6}, "show": ["fc"]},
+    {"id": "mod", "type": "iq_mod"},
+    {"id": "lo", "type": "lo", "params": {"freq": 5.8e9}, "show": ["freq"]},
+    {"id": "drv", "type": "amp", "label": "DRV", "params": {"gain": 15}, "show": ["gain"]},
+    {"id": "bpf", "type": "bpf", "params": {"fc": 5.8e9, "bw": 160e6}},
+    {"id": "pa", "type": "amp", "label": "PA", "params": {"gain": 28, "p1db": 33}, "show": ["gain", "p1db"]},
+    {"id": "ant", "type": "antenna", "flip": true}
+  ],
+  "connections": [
+    {"from": "fpga.i", "to": "dac.in"},
+    {"from": "fpga.q", "to": "dac.in"},
+    {"from": "dac.out", "to": "lpf.in"},
+    {"from": "lpf.out", "to": "mod.i"},
+    {"from": "lpf.out", "to": "mod.q"},
+    {"from": "lo.out", "to": "mod.lo"},
+    {"from": "mod.rf", "to": "drv.in"},
+    {"from": "drv.out", "to": "bpf.in"},
+    {"from": "bpf.out", "to": "pa.in"},
+    {"from": "pa.out", "to": "ant.io", "label": "+30 dBm"}
+  ]
+}

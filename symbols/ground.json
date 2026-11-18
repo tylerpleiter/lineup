@@ -1,0 +1,21 @@
+{
+  "id": "ground",
+  "name": "Ground",
+  "category": "generic",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M3,1 V2.6 M1.8,2.6 H4.2 M2.3,3.3 H3.7 M2.8,4 H3.2",
+  "ports": [
+    {
+      "name": "io",
+      "side": "t",
+      "at": 3,
+      "dir": "bi",
+      "signal": "se"
+    }
+  ],
+  "params": {},
+  "label": ""
+}

@@ -1,0 +1,27 @@
+{
+  "lineup": "0.1",
+  "title": "2.4 GHz zero-IF RX",
+  "blocks": [
+    {"id": "ant",  "type": "antenna"},
+    {"id": "bpf1", "type": "bpf", "params": {"fc": 2.44e9, "bw": 80e6}, "show": ["fc"]},
+    {"id": "lna",  "type": "amp", "label": "LNA", "params": {"gain": 18, "nf": 1.2}, "show": ["gain", "nf"]},
+    {"id": "bal",  "type": "balun"},
+    {"id": "dmd",  "type": "iq_demod", "signal": "diff"},
+    {"id": "lo",   "type": "lo", "label": "PLL", "params": {"freq": 2.44e9}, "show": ["freq"]},
+    {"id": "lpf",  "type": "lpf", "iq": true, "signal": "diff", "params": {"fc": 20e6}, "show": ["fc"]},
+    {"id": "vga",  "type": "amp", "label": "VGA", "variant": "adjustable", "iq": true, "signal": "diff"},
+    {"id": "adc",  "type": "adc", "iq": true, "signal": "diff", "params": {"bits": 14}, "show": ["bits"]}
+  ],
+  "connections": [
+    {"from": "ant.io",   "to": "bpf1.in"},
+    {"from": "bpf1.out", "to": "lna.in"},
+    {"from": "lna.out",  "to": "bal.in"},
+    {"from": "bal.out",  "to": "dmd.rf"},
+    {"from": "lo.out",   "to": "dmd.lo"},
+    {"from": "dmd.i",    "to": "lpf.in"},
+    {"from": "dmd.q",    "to": "lpf.in"},
+    {"from": "lpf.out",  "to": "vga.in"},
+    {"from": "vga.out",  "to": "adc.in"}
+  ],
+  "groups": [{"id": "fe", "label": "RF front end", "members": ["bpf1", "lna", "bal"]}]
+}

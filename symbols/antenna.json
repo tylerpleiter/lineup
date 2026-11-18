@@ -1,0 +1,22 @@
+{
+  "id": "antenna",
+  "name": "Antenna",
+  "category": "passive",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1.6,0.5 H4.4 L3,2.6 Z M3,0.5 V3 H5",
+  "mask": "M1.6,0.5 H4.4 L3,2.6 Z",
+  "ports": [
+    {
+      "name": "io",
+      "side": "r",
+      "at": 3,
+      "dir": "bi",
+      "signal": "se"
+    }
+  ],
+  "params": {},
+  "label": ""
+}

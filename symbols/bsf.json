@@ -1,0 +1,41 @@
+{
+  "id": "bsf",
+  "name": "Band-stop filter",
+  "category": "filter",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,1 H5 V5 H1 Z M2,2 Q2.5,1.45 3,2 T4,2 M2,3 Q2.5,2.45 3,3 T4,3 M2,4 Q2.5,3.45 3,4 T4,4 M2.7,3.45 L3.3,2.55",
+  "mask": "M1,1 H5 V5 H1 Z",
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 3,
+      "dir": "in",
+      "signal": "se"
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "at": 3,
+      "dir": "out",
+      "signal": "se",
+      "diffLead": 2
+    }
+  ],
+  "params": {
+    "fc": null,
+    "bw": null,
+    "il": null
+  },
+  "label": "",
+  "variants": {
+    "adjustable": {
+      "name": "Adjustable",
+      "body": "M1.3,5.3 L4.28,1.26",
+      "fill": "M4.7,0.7 L4.53,1.44 L4.04,1.09 Z"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "balun",
+  "name": "Balun",
+  "category": "passive",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M2.2,1.8 a0.4,0.4 0 0 1 0,0.8 a0.4,0.4 0 0 1 0,0.8 a0.4,0.4 0 0 1 0,0.8 M3.8,1.8 a0.4,0.4 0 0 0 0,0.8 a0.4,0.4 0 0 0 0,0.8 a0.4,0.4 0 0 0 0,0.8 M2.9,1.8 V4.2 M3.1,1.8 V4.2 M1,3 H1.6 V1.8 H2.2 M2.2,4.2 H1.6 V4.6 M1.2,4.6 H2 M1.4,4.85 H1.8 M3.8,1.8 H4.4 V2.5 H5 M3.8,4.2 H4.4 V3.5 H5",
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 3,
+      "dir": "bi",
+      "signal": "se",
+      "fixed": true
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "at": 3,
+      "dir": "bi",
+      "signal": "diff",
+      "fixed": true
+    }
+  ],
+  "params": {
+    "il": null
+  },
+  "label": ""
+}

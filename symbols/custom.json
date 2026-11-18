@@ -1,0 +1,28 @@
+{
+  "id": "custom",
+  "name": "Custom block",
+  "category": "generic",
+  "size": [
+    8,
+    6
+  ],
+  "body": "",
+  "labelInside": true,
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "dir": "in",
+      "signal": "se"
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "dir": "out",
+      "signal": "se"
+    }
+  ],
+  "params": {},
+  "label": "Block",
+  "description": "Labelled box with any ports: FIR, FFT, NCO, CORDIC, AGC, FPGA…"
+}

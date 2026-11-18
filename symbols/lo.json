@@ -1,0 +1,54 @@
+{
+  "id": "lo",
+  "name": "Oscillator / LO",
+  "category": "source",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,3 A2,2 0 1 1 5,3 A2,2 0 1 1 1,3 Z M1.8,3 Q2.4,1.9 3,3 T4.2,3",
+  "mask": "M1,3 A2,2 0 1 1 5,3 A2,2 0 1 1 1,3 Z",
+  "ports": [
+    {
+      "name": "ref",
+      "side": "l",
+      "at": 3,
+      "dir": "in",
+      "signal": "se",
+      "domain": "clk",
+      "optional": true
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "at": 3,
+      "dir": "out",
+      "signal": "se",
+      "domain": "lo",
+      "diffLead": 1.07
+    }
+  ],
+  "params": {
+    "freq": null
+  },
+  "label": "LO",
+  "variants": {
+    "adjustable": {
+      "name": "Adjustable",
+      "body": "M1.7,5.2 L4.0,1.35",
+      "fill": "M4.35,0.8 L4.27,1.55 L3.75,1.22 Z",
+      "ports": [
+        {
+          "name": "tune",
+          "side": "b",
+          "at": 3,
+          "dir": "in",
+          "signal": "se",
+          "domain": "ctrl",
+          "optional": true
+        }
+      ]
+    }
+  },
+  "description": "Any LO source: label it PLL, synthesizer… The adjustable variant (with a tune input) is a VCO."
+}

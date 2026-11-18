@@ -1,0 +1,44 @@
+{
+  "id": "dac",
+  "name": "Digital-to-analog converter",
+  "category": "converter",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,1 H4 L5,3 L4,5 H1 Z",
+  "mask": "M1,1 H4 L5,3 L4,5 H1 Z",
+  "texts": [
+    {
+      "text": "DAC",
+      "at": [
+        2.75,
+        3
+      ],
+      "size": 0.95
+    }
+  ],
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 3,
+      "dir": "in",
+      "signal": "se",
+      "domain": "digital",
+      "widthFrom": "bits"
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "at": 3,
+      "dir": "out",
+      "signal": "se"
+    }
+  ],
+  "params": {
+    "bits": null,
+    "fs": null
+  },
+  "label": ""
+}

@@ -1,0 +1,33 @@
+{
+  "lineup": "0.1",
+  "title": "Superhet receiver with digital downconversion",
+  "blocks": [
+    {"id": "ant", "type": "antenna"},
+    {"id": "pre", "type": "bpf", "label": "SAW", "params": {"fc": 915e6, "bw": 26e6}, "show": ["fc"]},
+    {"id": "lna", "type": "amp", "label": "LNA", "params": {"gain": 16, "nf": 0.9}, "show": ["gain", "nf"]},
+    {"id": "mix", "type": "mixer"},
+    {"id": "vco", "type": "lo", "label": "VCO", "variant": "adjustable", "params": {"freq": 1.055e9}, "show": ["freq"]},
+    {"id": "iff", "type": "bpf", "label": "IF filter", "params": {"fc": 140e6, "bw": 20e6}, "show": ["fc"]},
+    {"id": "ifa", "type": "amp", "variant": "adjustable", "label": "IF VGA"},
+    {"id": "aaf", "type": "lpf", "label": "AAF"},
+    {"id": "adc", "type": "adc", "params": {"bits": 14, "fs": 122.88e6}, "show": ["bits", "fs"]},
+    {"id": "ddc", "type": "ddc"},
+    {"id": "fir", "type": "custom", "label": "FIR"},
+    {"id": "dec", "type": "decim", "params": {"ratio": 8}}
+  ],
+  "connections": [
+    {"from": "ant.io", "to": "pre.in"},
+    {"from": "pre.out", "to": "lna.in"},
+    {"from": "lna.out", "to": "mix.rf"},
+    {"from": "vco.out", "to": "mix.lo"},
+    {"from": "mix.if", "to": "iff.in"},
+    {"from": "iff.out", "to": "ifa.in"},
+    {"from": "ifa.out", "to": "aaf.in"},
+    {"from": "aaf.out", "to": "adc.in"},
+    {"from": "adc.out", "to": "ddc.in"},
+    {"from": "ddc.i", "to": "fir.in"},
+    {"from": "ddc.q", "to": "fir.in"},
+    {"from": "fir.out", "to": "dec.in"}
+  ],
+  "groups": [{"id": "dsp", "label": "FPGA", "members": ["ddc", "fir", "dec"]}]
+}

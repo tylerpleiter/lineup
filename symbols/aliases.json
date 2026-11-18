@@ -1,0 +1,107 @@
+{
+  "$comment": "Other names for symbols. A block whose type is an alias loads as the target symbol with these defaults (only where the block doesn't set them). `ports` renames connection endpoints from the alias's port names to the target's.",
+  "aliases": {
+    "lna": {
+      "type": "amp",
+      "label": "LNA"
+    },
+    "pa": {
+      "type": "amp",
+      "label": "PA"
+    },
+    "driver": {
+      "type": "amp",
+      "label": "DRV"
+    },
+    "drv": {
+      "type": "amp",
+      "label": "DRV"
+    },
+    "vga": {
+      "type": "amp",
+      "label": "VGA",
+      "variant": "adjustable"
+    },
+    "gain": {
+      "type": "amp"
+    },
+    "aaf": {
+      "type": "lpf",
+      "label": "AAF"
+    },
+    "saw": {
+      "type": "bpf",
+      "label": "SAW"
+    },
+    "baw": {
+      "type": "bpf",
+      "label": "BAW"
+    },
+    "pll": {
+      "type": "lo",
+      "label": "PLL"
+    },
+    "synth": {
+      "type": "lo",
+      "label": "Synth"
+    },
+    "vco": {
+      "type": "lo",
+      "label": "VCO",
+      "variant": "adjustable"
+    },
+    "irm": {
+      "type": "mixer",
+      "label": "IRM"
+    },
+    "combiner": {
+      "type": "splitter",
+      "flip": true,
+      "ports": {
+        "i1": "o1",
+        "i2": "o2",
+        "out": "in"
+      }
+    },
+    "diplexer": {
+      "type": "duplexer",
+      "label": "Diplexer",
+      "ports": {
+        "com": "ant",
+        "lb": "tx",
+        "hb": "rx"
+      }
+    },
+    "fir": {
+      "type": "custom",
+      "label": "FIR"
+    },
+    "iir": {
+      "type": "custom",
+      "label": "IIR"
+    },
+    "fft": {
+      "type": "custom",
+      "label": "FFT"
+    },
+    "cordic": {
+      "type": "custom",
+      "label": "CORDIC"
+    },
+    "agc": {
+      "type": "custom",
+      "label": "AGC"
+    },
+    "nco": {
+      "type": "custom",
+      "label": "NCO",
+      "customPorts": [
+        {
+          "name": "out",
+          "side": "r",
+          "dir": "out"
+        }
+      ]
+    }
+  }
+}

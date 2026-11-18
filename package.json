@@ -1,0 +1,32 @@
+{
+  "name": "lineup",
+  "version": "0.1.0",
+  "description": "Signal-aware RF and DSP block diagram editor that runs entirely in the browser.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "symbols:doc": "node scripts/gen-symbols-doc.mjs"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tsconfig/svelte": "^5.0.9",
+    "@types/node": "^26.6.6",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "elkjs": "^0.12.1",
+    "jspdf": "^4.2.1",
+    "svg2pdf.js": "^2.9.0"
+  }
+}

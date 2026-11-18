@@ -1,0 +1,55 @@
+{
+  "id": "hybrid90",
+  "name": "90° hybrid",
+  "category": "passive",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,1 H5 V5 H1 Z M1,2 H1.6 M1,4 H1.6 M4.4,2 H5 M4.4,4 H5",
+  "mask": "M1,1 H5 V5 H1 Z",
+  "texts": [
+    {
+      "text": "90°",
+      "at": [
+        3,
+        3
+      ],
+      "size": 1
+    }
+  ],
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 2,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "iso",
+      "side": "l",
+      "at": 4,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "p0",
+      "side": "r",
+      "at": 2,
+      "dir": "bi",
+      "signal": "se"
+    },
+    {
+      "name": "p90",
+      "side": "r",
+      "at": 4,
+      "dir": "bi",
+      "signal": "se"
+    }
+  ],
+  "params": {
+    "il": null
+  },
+  "label": ""
+}

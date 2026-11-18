@@ -1,0 +1,44 @@
+{
+  "id": "adc",
+  "name": "Analog-to-digital converter",
+  "category": "converter",
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,3 L2,1 H5 V5 H2 Z",
+  "mask": "M1,3 L2,1 H5 V5 H2 Z",
+  "texts": [
+    {
+      "text": "ADC",
+      "at": [
+        3.25,
+        3
+      ],
+      "size": 0.95
+    }
+  ],
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 3,
+      "dir": "in",
+      "signal": "se"
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "at": 3,
+      "dir": "out",
+      "signal": "se",
+      "domain": "digital",
+      "widthFrom": "bits"
+    }
+  ],
+  "params": {
+    "bits": null,
+    "fs": null
+  },
+  "label": ""
+}
