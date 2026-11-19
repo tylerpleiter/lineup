@@ -12,8 +12,8 @@
     {"id": "aaf", "type": "lpf", "label": "AAF"},
     {"id": "adc", "type": "adc", "params": {"bits": 14, "fs": 122.88e6}, "show": ["bits", "fs"]},
     {"id": "ddc", "type": "ddc"},
-    {"id": "fir", "type": "custom", "label": "FIR"},
-    {"id": "dec", "type": "decim", "params": {"ratio": 8}}
+    {"id": "fir", "type": "custom", "label": "FIR", "domain": "complex"},
+    {"id": "dec", "type": "decim", "domain": "complex", "params": {"ratio": 8}}
   ],
   "connections": [
     {"from": "ant.io", "to": "pre.in"},
@@ -25,8 +25,7 @@
     {"from": "ifa.out", "to": "aaf.in"},
     {"from": "aaf.out", "to": "adc.in"},
     {"from": "adc.out", "to": "ddc.in"},
-    {"from": "ddc.i", "to": "fir.in"},
-    {"from": "ddc.q", "to": "fir.in"},
+    {"from": "ddc.out", "to": "fir.in"},
     {"from": "fir.out", "to": "dec.in"}
   ],
   "groups": [{"id": "dsp", "label": "FPGA", "members": ["ddc", "fir", "dec"]}]

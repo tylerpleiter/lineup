@@ -31,7 +31,20 @@
   import { linePaths } from './hops';
   import { groupBoxes, noteBoxes } from './annot';
 
-  let { ex, routed, doc, theme }: { ex: Expanded; routed: RouteResult; doc: LineupDoc; theme: Theme } = $props();
+  let {
+    ex,
+    routed,
+    doc,
+    theme,
+    notes: wireNotes,
+  }: {
+    ex: Expanded;
+    routed: RouteResult;
+    doc: LineupDoc;
+    theme: Theme;
+    /** Wire id → analysis text (frequency, level) printed under the wire. */
+    notes?: Map<string, string>;
+  } = $props();
 
   const paths = $derived(linePaths(routed.routes, doc.style?.hops !== false));
   const pm = $derived(!!doc.style?.pmMarks);
@@ -48,16 +61,16 @@
   const connected = $derived(new Set(ex.wires.flatMap((w) => [w.from.key, w.to.key])));
 
   function leads(inst: Instance) {
-    const out: { a: Pt; b: Pt; w: number }[] = [];
+    const out: { a: Pt; b: Pt; w: number; hollow?: number }[] = [];
     for (const p of inst.ports) {
       if (p.def.optional && !connected.has(p.key)) continue;
       const end: Pt = [p.p[0] - p.n[0] * p.lead, p.p[1] - p.n[1] * p.lead];
-      const w = p.domain === 'digital' ? theme.domains.digital.width : theme.body;
+      const w = p.domain === 'digital' || p.domain === 'complex' ? theme.domains[p.domain].width : theme.body;
       if (p.signal === 'diff') {
         const u: Pt = Math.abs(p.n[0]) > 0.5 ? [0, 0.5] : [0.5, 0];
         out.push({ a: [p.p[0] - u[0], p.p[1] - u[1]], b: [end[0] - u[0], end[1] - u[1]], w });
         out.push({ a: [p.p[0] + u[0], p.p[1] + u[1]], b: [end[0] + u[0], end[1] + u[1]], w });
-      } else out.push({ a: p.p, b: end, w });
+      } else out.push({ a: p.p, b: end, w, hollow: theme.domains[p.domain]?.hollow });
     }
     return out;
   }
@@ -76,6 +89,7 @@
     {@const st = theme.domains[r.wire.domain]}
     {#each paths[ri] as d}
       <path {d} fill="none" stroke={theme.colors?.[r.wire.domain] ?? theme.stroke} stroke-width={st.width} stroke-dasharray={st.dash} stroke-linejoin="miter" stroke-linecap="butt" />
+      {#if st.hollow}<path {d} fill="none" stroke={theme.background} stroke-width={st.hollow} stroke-linejoin="miter" stroke-linecap="butt" />{/if}
     {/each}
     {#if pm && r.wire.signal === 'diff'}
       {#each [r.wire.from, r.wire.to] as end}
@@ -103,6 +117,21 @@
         <text x={px(m[0]) + 6} y={px(m[1])} font-size="10" font-style="italic" dominant-baseline="central">{r.wire.label}</text>
       {/if}
     {/if}
+    {#if seg && wireNotes?.get(r.wire.id)}
+      <!-- Analysis notes (frequency, level) stacked above the wire, clear of block labels below. -->
+      {@const m = [(seg.a[0] + seg.b[0]) / 2, (seg.a[1] + seg.b[1]) / 2]}
+      {@const lines = wireNotes.get(r.wire.id)!.split('\n')}
+      {@const lift = (r.wire.label ? 14 : 0) + (r.wire.signal === 'diff' ? 9 : r.wire.domain === 'complex' || (r.wire.domain === 'digital' && r.wire.width) ? 8 : 5)}
+      {#if seg.horiz}
+        <text class="anno" x={px(m[0])} y={px(m[1]) - lift - (lines.length - 1) * 10} font-size="8.5" text-anchor="middle" fill={theme.stroke}>
+          {#each lines as ln, k}<tspan x={px(m[0])} dy={k ? 10 : 0}>{ln}</tspan>{/each}
+        </text>
+      {:else}
+        <text class="anno" x={px(m[0]) - 6} y={px(m[1]) - (lines.length - 1) * 5} font-size="8.5" text-anchor="end" dominant-baseline="central" fill={theme.stroke}>
+          {#each lines as ln, k}<tspan x={px(m[0]) - 6} dy={k ? 10 : 0}>{ln}</tspan>{/each}
+        </text>
+      {/if}
+    {/if}
     {#if r.wire.railMark}
       {@const p = r.wire.from.p}
       <text x={px(p[0] + r.wire.from.n[0] * 1.1)} y={px(p[1]) - (r.wire.signal === 'diff' ? 8 : 4)} font-size="10" text-anchor="middle">{r.wire.railMark}</text>
@@ -115,6 +144,7 @@
   {#each ex.instances as inst (inst.id)}
     {#each leads(inst) as l}
       <line x1={px(l.a[0])} y1={px(l.a[1])} x2={px(l.b[0])} y2={px(l.b[1])} stroke={theme.stroke} stroke-width={l.w} />
+      {#if l.hollow}<line x1={px(l.a[0])} y1={px(l.a[1])} x2={px(l.b[0])} y2={px(l.b[1])} stroke={theme.background} stroke-width={l.hollow} />{/if}
     {/each}
     <g transform={`scale(${G}) ${svgMatrix(inst.m)}`}>
       <SymbolBody def={inst.def} {theme} />

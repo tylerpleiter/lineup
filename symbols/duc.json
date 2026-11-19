@@ -4,46 +4,44 @@
   "category": "dsp",
   "size": [
     6,
-    12
+    6
   ],
-  "body": "M1,1 H5 V11 H1 Z",
-  "mask": "M1,1 H5 V11 H1 Z",
+  "body": "M1,1 H5 V5 H1 Z",
+  "mask": "M1,1 H5 V5 H1 Z",
   "texts": [
     {
       "text": "DUC",
       "at": [
         3,
-        6
+        3
       ],
-      "size": 1
+      "size": 1.0
     }
   ],
   "ports": [
     {
-      "name": "i",
+      "name": "in",
       "side": "l",
       "at": 3,
       "dir": "in",
-      "signal": "se"
-    },
-    {
-      "name": "q",
-      "side": "l",
-      "at": 9,
-      "dir": "in",
-      "signal": "se"
+      "signal": "se",
+      "domain": "complex",
+      "fixedDomain": true
     },
     {
       "name": "out",
       "side": "r",
-      "at": 6,
+      "at": 3,
       "dir": "out",
-      "signal": "se"
+      "signal": "se",
+      "domain": "digital",
+      "fixedDomain": true
     }
   ],
   "params": {
     "freq": null,
     "ratio": null
   },
-  "label": ""
+  "label": "",
+  "description": "Complex baseband in, real samples out."
 }

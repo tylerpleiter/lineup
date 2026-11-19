@@ -8,13 +8,17 @@ It runs entirely client-side. There is no server and no account.
 
 ## Features
 
-- **38 core symbols, one per distinct drawing:** amplifier, attenuator, LPF/HPF/BPF/BSF, mixer, I/Q (de)modulator, ×N/÷N, oscillator, crystal, antenna, duplexer, circulator, isolator, switches, coupler, splitter, 90° hybrid, balun, phase shifter, termination, ADC/DAC, Σ, z⁻¹, ↓M/↑L, DDC/DUC, complex multiply, ports, ground and custom blocks. Adjustable variants add a tuning arrow.
+- **41 core symbols, one per distinct drawing:** amplifier, attenuator, LPF/HPF/BPF/BSF, mixer, I/Q (de)modulator, ×N/÷N, oscillator, crystal, antenna, duplexer, circulator, isolator, switches, coupler, splitter, 90° hybrid, balun, phase shifter, termination, ADC/DAC, Σ, z⁻¹, ↓M/↑L, DDC/DUC, complex multiply, ports, ground, sheets and custom blocks. Adjustable variants add a tuning arrow.
 - **Aliases:** write `lna`, `pa`, `vga`, `saw`, `pll`, `vco`, `fir`, `nco`… and Lineup uses the core symbol with that label, so files (and AI agents) can use everyday names.
 - **Differential signals:** set a block to differential and its wires become two parallel lines, routed together.
+- **Analog, digital and complex domains:** DSP-capable blocks switch between analog, digital (heavy line) and complex (hollow double line, one block instead of an I/Q pair), and mismatched links are flagged.
 - **I/Q pairs:** connect a block after an I/Q demodulator and it becomes an I/Q pair, along with everything downstream. Edit the pair as one block, or unlink it.
 - **Connection checks:** Lineup flags single-ended ↔ differential mismatches, output-to-output connections, multiple drivers on one input, and bus-width mismatches.
 - **Auto-routing and auto-layout:** wires route at right angles on the grid, hopping over the wires they cross. Drag a wire segment to reroute it by hand. Files without coordinates are laid out automatically.
 - **Fast editing:** drop a block onto a wire to splice it in, press `/` to add a block by name, or press `Tab` to add the next block in a chain, already connected.
+- **Hierarchical sheets:** put a subsystem on its own sheet and place it as one block; its input and output port blocks become the block's ports. Double-click to open, Esc to go back up, or select blocks and choose Make sheet.
+- **Cascade analysis:** gain, noise figure, IIP3/OIP3, P1dB, levels and backoff stage by stage, plus kTB, MDS and SNR, along any path (through sheets). Copy the table as CSV or Markdown, or print levels on the wires.
+- **Frequency plan:** frequencies carried through mixers, multipliers, ADC aliasing and DDC/DUC shifts, with checks for out-of-passband signals, unfiltered mixer images and ADCs sampling above the first Nyquist zone.
 - **Annotations:** wire labels, dashed group boxes and free-text notes.
 - **Properties:** gain, NF, IP3, P1dB, frequency, bandwidth, bits and more, stored as numbers in base units. Any property can be shown under its symbol.
 - **Consistent text:** diagrams use the bundled Inter font, embedded in SVG, PNG and PDF exports, so they look the same on every machine.

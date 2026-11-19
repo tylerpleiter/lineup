@@ -1,0 +1,53 @@
+{
+  "id": "node",
+  "name": "Node",
+  "category": "generic",
+  "dsp": true,
+  "size": [
+    2,
+    2
+  ],
+  "body": "",
+  "fill": "M0.62,1 A0.38,0.38 0 1 1 1.38,1 A0.38,0.38 0 1 1 0.62,1 Z",
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 1,
+      "dir": "in",
+      "signal": "se",
+      "domain": "digital",
+      "optional": true
+    },
+    {
+      "name": "o1",
+      "side": "r",
+      "at": 1,
+      "dir": "out",
+      "signal": "se",
+      "domain": "digital",
+      "optional": true
+    },
+    {
+      "name": "o2",
+      "side": "t",
+      "at": 1,
+      "dir": "out",
+      "signal": "se",
+      "domain": "digital",
+      "optional": true
+    },
+    {
+      "name": "o3",
+      "side": "b",
+      "at": 1,
+      "dir": "out",
+      "signal": "se",
+      "domain": "digital",
+      "optional": true
+    }
+  ],
+  "params": {},
+  "label": "",
+  "description": "Branch point: copies one signal to up to three outputs (each output can also fan out)."
+}

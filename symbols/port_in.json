@@ -18,5 +18,7 @@
     }
   ],
   "params": {},
-  "label": "IN"
+  "label": "IN",
+  "dsp": true,
+  "description": "Off-page input. Inside a sheet it becomes an input port of the sheet block, named after this block's id."
 }

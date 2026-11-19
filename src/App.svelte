@@ -2,6 +2,7 @@
   import Canvas from './editor/Canvas.svelte';
   import Palette from './ui/Palette.svelte';
   import Properties from './ui/Properties.svelte';
+  import Analysis from './ui/Analysis.svelte';
   import AgentsDialog from './ui/AgentsDialog.svelte';
   import { editor } from './editor/store.svelte';
   import { serialize, emptyDoc } from './model/doc';
@@ -12,8 +13,9 @@
   import zeroIf from '../examples/zero-if-rx.sig.json?raw';
   import iqTx from '../examples/iq-tx.sig.json?raw';
   import superhet from '../examples/superhet-ddc.sig.json?raw';
+  import sheetsLineup from '../examples/sheets-lineup.sig.json?raw';
 
-  const EXAMPLES: Record<string, string> = { 'Zero-IF receiver': zeroIf, 'Superhet + DDC receiver': superhet, 'I/Q transmitter': iqTx };
+  const EXAMPLES: Record<string, string> = { 'Zero-IF receiver': zeroIf, 'Superhet + DDC receiver': superhet, 'I/Q transmitter': iqTx, 'Receiver lineup (sheets + cascade)': sheetsLineup };
 
   let menu = $state<'export' | 'examples' | null>(null);
   let agents = $state(false);
@@ -44,7 +46,7 @@
     if (!b) return editor.notify('Nothing to export', 'warning');
     const source = serialize(editor.snapshot());
     const svg = await buildSVG(b, { source });
-    const name = slug(editor.doc.title);
+    const name = slug(editor.doc.title) + (editor.sheetPath.length ? `-${editor.sheetPath.at(-1)}` : '');
     if (kind === 'svg') download(`${name}.svg`, svg, 'image/svg+xml');
     else if (kind === 'pdf') {
       try {
@@ -65,11 +67,17 @@
   }
 
   function newDoc() {
-    editor.edit((d) => {
-      Object.assign(d, emptyDoc());
-      delete d.groups;
-      delete d.notes;
-    });
+    editor.goTo([]);
+    editor.edit(
+      (d) => {
+        Object.assign(d, emptyDoc());
+        delete d.groups;
+        delete d.notes;
+        delete d.sheets;
+        delete d.analysis;
+      },
+      { root: true },
+    );
     editor.sel = { blocks: [], conn: null };
     editor.loadWarnings = [];
   }
@@ -86,7 +94,7 @@
     else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) editor.redo();
     else if (mod && k === 's') save();
     else if (mod && k === 'o') open();
-    else if (mod && k === 'a') editor.sel = { blocks: editor.doc.blocks.map((b) => b.id), conn: null };
+    else if (mod && k === 'a') editor.sel = { blocks: editor.cur.blocks.map((b) => b.id), conn: null };
     else if (mod && k === 'd') editor.duplicate();
     else if (mod && (k === 'c' || k === 'x')) {
       const text = editor.copy();
@@ -98,14 +106,18 @@
     else if (mod) return;
     else if (k === 'delete' || k === 'backspace') editor.deleteSelection();
     else if (k === 'r') editor.rotateSelection();
-    else if (k === 'f') editor.flipSelection();
+    else if (k === 'f') editor.flipSelection(e.shiftKey);
     else if (k === 'l') editor.autoLayout();
     else if (k === 'g') editor.groupSelection();
     else if (k === 'n') editor.addNote();
+    else if (k === 'a') editor.analysisOpen = !editor.analysisOpen;
     else if (k === '0') editor.fit();
     else if (k === '/') editor.openQuickAdd(false);
     else if (k === 'tab' && editor.sel.blocks.length === 1) editor.openQuickAdd(true);
+    else if (k === 'enter' && editor.sel.blocks.length === 1 && editor.openSheet(editor.sel.blocks[0])) {}
     else if (k === 'escape') {
+      const nothing = !editor.sel.blocks.length && editor.sel.conn === null && !editor.sel.group && editor.sel.note == null && !menu;
+      if (nothing && editor.sheetPath.length) editor.goTo(editor.sheetPath.slice(0, -1));
       editor.sel = { blocks: [], conn: null };
       menu = null;
     } else return;
@@ -192,13 +204,17 @@
       <span class="sep"></span>
       <button onclick={() => editor.autoLayout()} title="Auto-layout (L)">Auto-layout</button>
       <button onclick={() => editor.fit()} title="Fit (0)">Fit</button>
+      <button class:on={editor.analysisOpen} onclick={() => (editor.analysisOpen = !editor.analysisOpen)} title="Cascade analysis and frequency plan (A)">Analysis</button>
       <span class="sep"></span>
       <button onclick={() => (agents = true)} title="Use Lineup with Claude Code, Gemini CLI and other AI agents">AI agents</button>
     </nav>
   </header>
   <main>
     <Palette />
-    <Canvas />
+    <div class="center">
+      <Canvas />
+      {#if editor.analysisOpen}<Analysis />{/if}
+    </div>
     <Properties />
   </main>
   <footer>
@@ -299,6 +315,16 @@
     flex: 1;
     display: flex;
     min-height: 0;
+  }
+  .center {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  nav button.on {
+    background: #e8f0fe;
+    color: #1d4ed8;
   }
   footer {
     display: flex;

@@ -1,0 +1,58 @@
+{
+  "lineup": "0.1",
+  "title": "915 MHz receiver lineup",
+  "analysis": {"pin": -95, "fin": 915e6, "bw": 200e3, "showLevels": true, "showFreq": true},
+  "blocks": [
+    {"id": "ant", "type": "antenna"},
+    {"id": "fe", "type": "sheet", "sheet": "frontend", "label": "RF front end"},
+    {"id": "mix", "type": "mixer", "params": {"gain": -7, "nf": 7, "iip3": 15}, "show": ["gain", "nf"]},
+    {"id": "vco", "type": "lo", "label": "VCO", "variant": "adjustable", "params": {"freq": 1.055e9}, "show": ["freq"]},
+    {"id": "ifc", "type": "sheet", "sheet": "ifchain", "label": "IF chain"},
+    {"id": "adc", "type": "adc", "params": {"bits": 14, "fs": 122.88e6}, "show": ["bits", "fs"]},
+    {"id": "ddc", "type": "ddc", "params": {"freq": 17.12e6}, "show": ["freq"]}
+  ],
+  "connections": [
+    {"from": "ant.io", "to": "fe.rf_in"},
+    {"from": "fe.rf_out", "to": "mix.rf"},
+    {"from": "vco.out", "to": "mix.lo"},
+    {"from": "mix.if", "to": "ifc.if_in"},
+    {"from": "ifc.if_out", "to": "adc.in"},
+    {"from": "adc.out", "to": "ddc.in"}
+  ],
+  "sheets": {
+    "frontend": {
+      "title": "RF front end",
+      "blocks": [
+        {"id": "rf_in", "type": "port_in", "label": "RF in"},
+        {"id": "lim", "type": "limiter", "params": {"il": 0.3}},
+        {"id": "saw", "type": "bpf", "label": "SAW", "params": {"fc": 915e6, "bw": 26e6, "il": 2.2}, "show": ["fc", "il"]},
+        {"id": "lna", "type": "amp", "label": "LNA", "params": {"gain": 18, "nf": 0.9, "oip3": 32, "p1db": 18}, "show": ["gain", "nf"]},
+        {"id": "img", "type": "bpf", "label": "Image filter", "params": {"fc": 915e6, "bw": 40e6, "il": 1.5}, "show": ["il"]},
+        {"id": "rf_out", "type": "port_out", "label": "RF out"}
+      ],
+      "connections": [
+        {"from": "rf_in.out", "to": "lim.in"},
+        {"from": "lim.out", "to": "saw.in"},
+        {"from": "saw.out", "to": "lna.in"},
+        {"from": "lna.out", "to": "img.in"},
+        {"from": "img.out", "to": "rf_out.in"}
+      ]
+    },
+    "ifchain": {
+      "title": "IF chain",
+      "blocks": [
+        {"id": "if_in", "type": "port_in", "label": "IF in"},
+        {"id": "iff", "type": "bpf", "label": "IF SAW", "params": {"fc": 140e6, "bw": 2e6, "il": 6}, "show": ["fc", "bw"]},
+        {"id": "vga", "type": "amp", "label": "IF VGA", "variant": "adjustable", "params": {"gain": 30, "nf": 6, "oip3": 38, "p1db": 20}, "show": ["gain"]},
+        {"id": "aaf", "type": "lpf", "label": "AAF", "params": {"fc": 200e6, "il": 1}, "show": ["fc"]},
+        {"id": "if_out", "type": "port_out", "label": "IF out"}
+      ],
+      "connections": [
+        {"from": "if_in.out", "to": "iff.in"},
+        {"from": "iff.out", "to": "vga.in"},
+        {"from": "vga.out", "to": "aaf.in"},
+        {"from": "aaf.out", "to": "if_out.in"}
+      ]
+    }
+  }
+}

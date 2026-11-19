@@ -33,7 +33,8 @@
       "dir": "out",
       "signal": "se",
       "domain": "digital",
-      "widthFrom": "bits"
+      "widthFrom": "bits",
+      "fixedDomain": true
     }
   ],
   "params": {

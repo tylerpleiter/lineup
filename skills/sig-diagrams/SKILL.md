@@ -39,9 +39,13 @@ Lineup (https://tylerpleiter.github.io/lineup/) draws RF and DSP block diagrams 
 4. **Leave out `x`, `y` and `via`.** Lineup auto-places blocks without coordinates and keeps LO sources next to the port they feed.
 5. **Properties:** reserved keys are plain numbers in base units: `gain`/`nf`/`il` in dB, `oip3`/`iip3`/`p1db` in dBm, `freq`/`fc`/`bw` in Hz, `fs` in S/s, `bits` and `ratio` as counts. Write `2.44e9`, never `"2.44 GHz"`. List the keys to print under the symbol in `show`.
 6. **Differential:** set `"signal": "diff"` on each block in the differential section. Go from single-ended to differential through a `balun` (`in` is single-ended, `out` is differential).
-7. **I/Q:** don't set `iq` yourself. Connect a split block's `i` and `q` outputs to the *same* input, e.g. `dmd.i → lpf.in` and `dmd.q → lpf.in`. Everything downstream then becomes an I/Q pair automatically, until a merge block (`iq_mod.i`/`.q`, `duc`). For TX, connect one block's output to both `mod.i` and `mod.q`; everything upstream becomes a pair.
-8. **Optional extras:** a `label` on a connection (e.g. `"−30 dBm"`); `"groups": [{"id": "fe", "label": "RF front end", "members": [...]}]`; `"notes": [{"text": "...", "near": "lna"}]`.
-9. **Check it:** `python scripts/check.py file.sig.json`. Fix every error and reconsider each warning. Then tell the user they can open the file in Lineup: Open, or drag and drop.
+7. **Analog vs DSP:** analog blocks need nothing. In the DSP part of a chain, set `"domain"` on DSP-capable blocks (✓ in SYMBOLS.md): `"digital"` for real samples, `"complex"` for I+jQ streams (e.g. after a `ddc`). Example: `{"id": "chf", "type": "lpf", "label": "FIR", "domain": "complex"}`. ADC outputs are digital and DDC outputs are complex, fixed. Analog ↔ digital or real ↔ complex links warn.
+8. **I/Q (analog, or digital before a DDC):** don't set `iq` yourself. Connect a split block's `i` and `q` outputs to the *same* input, e.g. `dmd.i → lpf.in` and `dmd.q → lpf.in`. Everything downstream then becomes an I/Q pair automatically, until a merge block (`iq_mod.i`/`.q`) or a custom block. For TX, connect one block's output to both `mod.i` and `mod.q`; everything upstream becomes a pair. A custom block (serializer, FPGA) can take a pair into one port, or feed a pair from one port.
+9. **Switches and branches:** `{"type": "switch", "params": {"throws": 4}}` (or `sp4t`) has ports `c`, `t1`…`t4`. A switched filter bank is `sw1.c` ← input, `sw1.tN → fN.in`, `fN.out → sw2.tN`, `sw2.c` → onward; layout turns `sw2` around for you. Use a `node` (`in`, `o1`–`o3`) for an explicit branch point.
+10. **Sheets (hierarchy):** for a big design, put a subsystem in `"sheets": {"frontend": {"blocks": [...], "connections": [...]}}` and place it with `{"id": "fe", "type": "sheet", "sheet": "frontend"}`. Inside, `port_in`/`port_out` blocks become the sheet block's ports, named by their ids: `ant.io → fe.rf_in` when the sheet has a `port_in` with id `rf_in`.
+11. **Cascade:** give stages `gain` (passives: `il`) and `nf`, plus `iip3`/`oip3` and `p1db` where known, and add `"analysis": {"pin": -90, "fin": 915e6, "bw": 200e3}`. Lineup then shows gain, NF, IP3, P1dB, levels, MDS/SNR and a frequency plan (image and Nyquist checks). `"mix": "sum"` on a mixer makes it an upconverter.
+12. **Optional extras:** a `label` on a connection (e.g. `"−30 dBm"`); `"groups": [{"id": "fe", "label": "RF front end", "members": [...]}]`; `"notes": [{"text": "...", "near": "lna"}]`.
+13. **Check it:** `python scripts/check.py file.sig.json`. Fix every error and reconsider each warning. Then tell the user they can open the file in Lineup: Open, or drag and drop.
 
 ## Editing an existing diagram
 
@@ -56,6 +60,7 @@ Lineup (https://tylerpleiter.github.io/lineup/) draws RF and DSP block diagrams 
 
 - **From an image:** if given an SVG or PNG exported from Lineup, run `python scripts/extract.py image.png` first. The exact diagram is embedded, so don't read it off the pixels. If there's no embedded source, it isn't a Lineup export; fall back to reading the image.
 - **Describing it:** walk the signal path from input to output, giving each stage's type, label and key properties. Note where the path splits into I and Q, and which source feeds each mixer's LO. Point out differential sections and anything `check.py` reports.
+- **Sheets:** describe the top level first, then each sheet; a sheet block's ports are the sheet's `port_in`/`port_out` ids. Blocks inside sheet block `fe` are `fe/lna` in analysis paths.
 - **Comparing two versions:** list added and removed blocks, changed properties and rewired connections, by block id.
 
 ## Gotchas

@@ -26,7 +26,8 @@
       "dir": "in",
       "signal": "se",
       "domain": "digital",
-      "widthFrom": "bits"
+      "widthFrom": "bits",
+      "fixedDomain": true
     },
     {
       "name": "out",

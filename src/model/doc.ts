@@ -84,7 +84,7 @@ export function signalOrder(doc: LineupDoc): Block[] {
   return out;
 }
 
-const BLOCK_KEYS: (keyof Block)[] = ['id', 'type', 'label', 'x', 'y', 'rot', 'flip', 'iq', 'iqOverride', 'signal', 'size', 'ports', 'params', 'show'];
+const BLOCK_KEYS: (keyof Block)[] = ['id', 'type', 'sheet', 'label', 'x', 'y', 'rot', 'flip', 'flipV', 'iq', 'iqOverride', 'signal', 'domain', 'variant', 'size', 'ports', 'icon', 'params', 'show'];
 const CONN_KEYS: (keyof Connection)[] = ['from', 'to', 'label', 'domain', 'via'];
 
 function pick<T extends object>(o: T, keys: (keyof T)[], skip: Set<keyof T>): Partial<T> {
@@ -111,7 +111,22 @@ export function serialize(doc: LineupDoc): string {
   if (doc.title) out.title = doc.title;
   if (doc.theme && doc.theme !== 'mono') out.theme = doc.theme;
   if (doc.style && Object.keys(doc.style).length) out.style = doc.style;
-  out.blocks = signalOrder(doc).map((b) => {
+  if (doc.analysis && Object.keys(doc.analysis).length) out.analysis = doc.analysis;
+  Object.assign(out, content(doc, skipB, skipC));
+  if (doc.sheets && Object.keys(doc.sheets).length) {
+    out.sheets = Object.fromEntries(
+      Object.entries(doc.sheets)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([name, sh]) => [name, { ...(sh.title ? { title: sh.title } : {}), ...content(sh as LineupDoc, skipB, skipC) }]),
+    );
+  }
+  return compactJSON(out);
+}
+
+/** Blocks (signal order), connections, groups and notes of a diagram or sheet, cleaned for saving. */
+function content(doc: Pick<LineupDoc, 'blocks' | 'connections' | 'groups' | 'notes'>, skipB: Set<keyof Block>, skipC: Set<keyof Connection>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  out.blocks = signalOrder(doc as LineupDoc).map((b) => {
     const clean = pick(b, BLOCK_KEYS, skipB);
     if (clean.params) {
       const p: Record<string, unknown> = {};
@@ -124,7 +139,7 @@ export function serialize(doc: LineupDoc): string {
   out.connections = doc.connections.map((c) => pick(c, CONN_KEYS, skipC));
   if (doc.groups?.length) out.groups = doc.groups.map((g) => ({ id: g.id, ...(g.label ? { label: g.label } : {}), members: g.members }));
   if (doc.notes?.length) out.notes = doc.notes;
-  return compactJSON(out);
+  return out;
 }
 
 /** Pretty JSON, but short objects and arrays of numbers stay on one line. */

@@ -2,20 +2,34 @@
   import { editor } from '../editor/store.svelte';
   import { symbolFor } from '../model/symbols';
   import { RESERVED, editText, parseParam } from '../model/params';
-  import { DOMAINS, SIGNAL_PATH_DOMAINS, type Block, type Domain, type ParamValue, type PortDef, type Rail } from '../model/types';
+  import { DOMAINS, SIGNAL_PATH_DOMAINS, type Block, type BlockDomain, type Domain, type ParamValue, type PortDef, type Rail } from '../model/types';
   import { SYMBOLS } from '../model/symbols';
+  import type { Issue } from '../model/expand';
 
   const sel = $derived(editor.sel);
-  const block = $derived(sel.blocks.length === 1 ? editor.doc.blocks.find((b) => b.id === sel.blocks[0]) : undefined);
-  const def = $derived(block ? symbolFor(block).def : undefined);
-  const conn = $derived(sel.conn !== null ? editor.doc.connections[sel.conn] : undefined);
-  const multi = $derived(sel.blocks.length > 1 ? editor.doc.blocks.filter((b) => sel.blocks.includes(b.id)) : []);
+  const block = $derived(sel.blocks.length === 1 ? editor.cur.blocks.find((b) => b.id === sel.blocks[0]) : undefined);
+  const def = $derived(block ? (editor.expanded.byBlock.get(block.id)?.[0]?.def ?? symbolFor(block).def) : undefined);
+  const sheetNames = $derived(Object.keys(editor.doc.sheets ?? {}).sort());
+  const unused = $derived(new Set(editor.unusedSheets()));
+  const conn = $derived(sel.conn !== null ? editor.cur.connections[sel.conn] : undefined);
+  const multi = $derived(sel.blocks.length > 1 ? editor.cur.blocks.filter((b) => sel.blocks.includes(b.id)) : []);
   const canLink = $derived(multi.length === 2 && multi[0].type === multi[1].type && !multi[0].iq && !multi[1].iq);
+  /** The block's effective domain: its own setting, or what the symbol's signal ports carry. */
+  const blockDomain = $derived.by((): BlockDomain => {
+    if (!block || !def) return 'signal';
+    if (block.domain) return block.domain;
+    const p = def.ports.find((x) => !x.fixedDomain && ['signal', 'digital', 'complex'].includes(x.domain ?? 'signal'));
+    return (p?.domain as BlockDomain | undefined) ?? 'signal';
+  });
   const hasSignalPorts = $derived(!!def?.ports.some((p) => !p.fixed && SIGNAL_PATH_DOMAINS.includes(p.domain ?? 'signal')));
-  const issues = $derived(editor.expanded.issues);
-  const group = $derived(sel.group ? editor.doc.groups?.find((g) => g.id === sel.group) : undefined);
-  const note = $derived(sel.note !== null && sel.note !== undefined ? editor.doc.notes?.[sel.note] : undefined);
-  const isCustom = $derived(!!block && (block.type === 'custom' || !SYMBOLS[block.type]));
+  // Missing sheets are reported per page by expand(); loops only show up once the file is flattened.
+  const issues = $derived([
+    ...editor.flat.issues.filter((m) => m.includes('contains itself')).map((msg): Issue => ({ level: 'error', msg })),
+    ...editor.expanded.issues,
+  ]);
+  const group = $derived(sel.group ? editor.cur.groups?.find((g) => g.id === sel.group) : undefined);
+  const note = $derived(sel.note !== null && sel.note !== undefined ? editor.cur.notes?.[sel.note] : undefined);
+  const isCustom = $derived(!!block && block.type !== 'sheet' && (block.type === 'custom' || !SYMBOLS[block.type]));
   const customPorts = $derived(block && isCustom ? (block.ports ?? def?.ports ?? []) : []);
 
   function setPorts(fn: (ports: PortDef[]) => void) {
@@ -150,43 +164,93 @@
         }}
       />
     </div>
-    <div class="row">
-      {#if hasSignalPorts}
-        <div class="seg" role="group" aria-label="Signal">
-          <button class:on={(block.signal ?? 'se') === 'se'} onclick={() => editor.updateBlock(block.id, (b) => delete b.signal)}>Single</button>
-          <button class:on={block.signal === 'diff'} onclick={() => editor.updateBlock(block.id, (b) => (b.signal = 'diff'))}>Diff</button>
+    {#if block.type === 'sheet'}
+      <div class="field">
+        <label for="p-sheet">Sheet</label>
+        <div class="row tight">
+          <select id="p-sheet" style="flex:1;min-width:0" value={block.sheet ?? ''} onchange={(e) => editor.setSheet(block.id, e.currentTarget.value)}>
+            {#if !block.sheet || !editor.doc.sheets?.[block.sheet]}<option value={block.sheet ?? ''}>{block.sheet ?? '(none)'} (missing)</option>{/if}
+            {#each sheetNames as n}<option value={n}>{editor.doc.sheets?.[n]?.title && editor.doc.sheets[n].title !== n ? `${n} — ${editor.doc.sheets[n].title}` : n}</option>{/each}
+          </select>
+          <button class="small" onclick={() => editor.openSheet(block.id)} disabled={!block.sheet || !editor.doc.sheets?.[block.sheet]} title="Open the sheet (double-click the block, or Enter)">Open</button>
         </div>
+      </div>
+      {#if block.sheet && editor.doc.sheets?.[block.sheet]}
+        <div class="field">
+          <label for="p-sheetname">Sheet name</label>
+          <input id="p-sheetname" value={block.sheet} spellcheck="false" onkeydown={onEnter} onchange={(e) => {
+            const v = e.currentTarget.value.trim();
+            if (v !== block.sheet && !editor.renameSheet(block.sheet!, v)) {
+              editor.notify('Sheet names are letters, digits, _ and -, and must be unique', 'error');
+              e.currentTarget.value = block.sheet!;
+            }
+          }} />
+        </div>
+        <p class="hint">Ports come from the sheet's input and output port blocks. Every block using "{block.sheet}" shares its contents.</p>
       {/if}
-      <label class="check"><input type="checkbox" checked={!!block.iq} onchange={(e) => editor.setIQ(block.id, e.currentTarget.checked)} /> I/Q pair</label>
-    </div>
-    {#if block.iq}
-      <div class="row">
-        <span class="hint">Edit</span>
-        <div class="seg" role="group" aria-label="Rail to edit">
-          {#each ['both', 'i', 'q'] as r}
-            <button class:on={editor.railEdit === r} onclick={() => (editor.railEdit = r as typeof editor.railEdit)}>{r === 'both' ? 'Both' : r.toUpperCase() + ' only'}</button>
-          {/each}
+    {/if}
+    {#if block.type === 'mixer'}
+      <div class="opts">
+        <span class="lbl">Output</span>
+        <div class="seg" role="group" aria-label="Mixer output">
+          <button class:on={block.params?.mix !== 'sum'} onclick={() => editor.updateBlock(block.id, (b) => { if (b.params) delete b.params.mix; })} title="|RF − LO| (downconversion)">Difference</button>
+          <button class:on={block.params?.mix === 'sum'} onclick={() => editor.updateBlock(block.id, (b) => { b.params = { ...(b.params ?? {}), mix: 'sum' }; })} title="RF + LO (upconversion)">Sum</button>
         </div>
-        <button class="small" onclick={() => editor.unlinkPair(block.id)} title="Split into two independent blocks">Unlink</button>
       </div>
     {/if}
-    <div class="row">
-      <button class="small" onclick={() => editor.rotateSelection()} title="Rotate (R)">Rotate ⟳</button>
-      <button class="small" onclick={() => editor.flipSelection()} title="Flip (F)">Flip ⇋</button>
-      <span class="hint">{block.rot ?? 0}°{block.flip ? ', flipped' : ''}</span>
-    </div>
-
-    {#if def.variants}
-      <div class="row">
-        <span class="hint">Variant</span>
+    <div class="opts">
+      {#if def.dsp}
+        <span class="lbl">Domain</span>
+        <div class="seg" role="group" aria-label="Domain">
+          {#each [['signal', 'Analog'], ['digital', 'Digital'], ['complex', 'Complex']] as [d, name]}
+            <button class:on={blockDomain === d} onclick={() => editor.setBlockStyle(block.id, { domain: d as BlockDomain })} title={d === 'complex' ? 'Complex (I+jQ) samples on one line' : d === 'digital' ? 'Real-valued samples or a bus' : 'Analog signal'}>{name}</button>
+          {/each}
+        </div>
+      {/if}
+      {#if hasSignalPorts && blockDomain === 'signal' && block.type !== 'sheet'}
+        <span class="lbl">Signal</span>
+        <div class="seg" role="group" aria-label="Signal">
+          <button class:on={(block.signal ?? 'se') === 'se'} onclick={() => editor.setBlockStyle(block.id, { signal: 'se' })}>Single-ended</button>
+          <button class:on={block.signal === 'diff'} onclick={() => editor.setBlockStyle(block.id, { signal: 'diff' })}>Differential</button>
+        </div>
+      {/if}
+      {#if blockDomain !== 'complex' && block.type !== 'sheet'}
+        <span class="lbl">Path</span>
+        <div class="seg" role="group" aria-label="Path">
+          <button class:on={!block.iq} onclick={() => editor.setBlockStyle(block.id, { iq: false })}>Single</button>
+          <button class:on={!!block.iq} onclick={() => editor.setBlockStyle(block.id, { iq: true })} title="Drawn as linked I and Q blocks">I/Q pair</button>
+        </div>
+      {/if}
+      {#if block.iq}
+        <span class="lbl">Edit</span>
+        <div class="row tight">
+          <div class="seg" role="group" aria-label="Rail to edit">
+            {#each ['both', 'i', 'q'] as r}
+              <button class:on={editor.railEdit === r} onclick={() => (editor.railEdit = r as typeof editor.railEdit)}>{r === 'both' ? 'Both' : r.toUpperCase() + ' only'}</button>
+            {/each}
+          </div>
+          <button class="small" onclick={() => editor.unlinkPair(block.id)} title="Split into two independent blocks">Unlink</button>
+        </div>
+      {/if}
+      {#if def.variants}
+        <span class="lbl">Variant</span>
         <div class="seg" role="group" aria-label="Variant">
-          <button class:on={!block.variant} onclick={() => editor.updateBlock(block.id, (b) => delete b.variant)}>Fixed</button>
+          <button class:on={!block.variant} onclick={() => editor.updateBlock(block.id, (b) => delete b.variant)}>{def.variants.adjustable ? 'Fixed' : 'Standard'}</button>
           {#each Object.entries(def.variants) as [vk, v]}
             <button class:on={block.variant === vk} onclick={() => editor.updateBlock(block.id, (b) => (b.variant = vk))}>{v.name}</button>
           {/each}
         </div>
+      {/if}
+      <span class="lbl">Orient</span>
+      <div class="row tight">
+        <div class="seg" role="group" aria-label="Orientation">
+          <button onclick={() => editor.rotateSelection()} title="Rotate 90° (R)">⟳ Rotate</button>
+          <button class:on={!!block.flip} onclick={() => editor.flipSelection(false)} title="Flip horizontally (F)">⇋</button>
+          <button class:on={!!block.flipV} onclick={() => editor.flipSelection(true)} title="Flip vertically (Shift+F)">⇅</button>
+        </div>
+        {#if block.rot}<span class="hint">{block.rot}°</span>{/if}
       </div>
-    {/if}
+    </div>
 
     {#if isCustom}
       <h3>Ports</h3>
@@ -229,6 +293,7 @@
       </div>
     {/if}
 
+    {#if block.type !== 'sheet'}
     <h3>Properties</h3>
     {#if !paramKeys.length}<p class="hint">No properties yet.</p>{/if}
     {#each paramKeys as key (key)}
@@ -251,6 +316,7 @@
       <button class="small" onclick={addParam}>Add</button>
     </div>
     <p class="hint">Accepts units: 2.44G, 20 MHz, -3 dB, 30 dBm.</p>
+    {/if}
     <div class="row end"><button class="small danger" onclick={() => editor.deleteSelection()}>Delete block</button></div>
   {:else if multi.length}
     <h2>{multi.length} blocks</h2>
@@ -259,6 +325,7 @@
       <button class="small" onclick={() => editor.flipSelection()}>Flip</button>
       <button class="small" onclick={() => editor.autoLayout()} title="Re-run auto-layout on the selection">Tidy</button>
       <button class="small" onclick={() => editor.groupSelection()} title="Group (G)">Group</button>
+      <button class="small" onclick={() => editor.makeSheet()} title="Move the selection into a new sheet (hierarchical block)">Make sheet</button>
       <button class="small" onclick={() => editor.duplicate()} title="Duplicate (Ctrl+D)">Duplicate</button>
       <button class="small danger" onclick={() => editor.deleteSelection()}>Delete</button>
     </div>
@@ -336,10 +403,10 @@
     </div>
     <div class="row end"><button class="small danger" onclick={() => editor.deleteSelection()}>Delete connection</button></div>
   {:else}
-    <h2>Diagram</h2>
+    <h2>{editor.sheetPath.length ? 'Sheet' : 'Diagram'}</h2>
     <div class="field">
       <label for="d-title">Title</label>
-      <input id="d-title" value={editor.doc.title ?? ''} onkeydown={onEnter} onchange={(e) => {
+      <input id="d-title" value={editor.cur.title ?? ''} onkeydown={onEnter} onchange={(e) => {
         const v = e.currentTarget.value;
         editor.edit((d) => {
           d.title = v || undefined;
@@ -353,15 +420,30 @@
         <button class:on={editor.doc.theme === 'color'} onclick={() => editor.edit((d) => { d.theme = 'color'; })}>Color</button>
       </div>
     </div>
-    <label class="check left"><input type="checkbox" checked={editor.doc.style?.hops !== false} onchange={(e) => {
+    <label class="toggle"><input type="checkbox" checked={editor.doc.style?.hops !== false} onchange={(e) => {
       const on = e.currentTarget.checked;
       editor.edit((d) => { d.style ??= {}; if (on) delete d.style.hops; else d.style.hops = false; if (!Object.keys(d.style).length) delete d.style; });
-    }} /> Hop over crossing wires</label>
-    <label class="check left"><input type="checkbox" checked={!!editor.doc.style?.pmMarks} onchange={(e) => {
+    }} /><span class="track"></span> Hop over crossing wires</label>
+    <label class="toggle"><input type="checkbox" checked={!!editor.doc.style?.pmMarks} onchange={(e) => {
       const on = e.currentTarget.checked;
       editor.edit((d) => { d.style ??= {}; if (on) d.style.pmMarks = true; else delete d.style.pmMarks; if (!Object.keys(d.style).length) delete d.style; });
-    }} /> Mark differential pins + / −</label>
-    <p class="hint">{editor.doc.blocks.length} blocks · {editor.doc.connections.length} connections</p>
+    }} /><span class="track"></span> Mark differential pins + / −</label>
+    <p class="hint">{editor.cur.blocks.length} blocks · {editor.cur.connections.length} connections</p>
+    {#if sheetNames.length}
+      <h3>Sheets</h3>
+      <ul class="sheets">
+        {#each sheetNames as n}
+          <li>
+            <span class="mono">{n}</span>
+            {#if editor.doc.sheets?.[n]?.title && editor.doc.sheets[n].title !== n}<span class="hint">{editor.doc.sheets[n].title}</span>{/if}
+            {#if unused.has(n)}
+              <span class="hint">unused</span>
+              <button class="small danger" onclick={() => editor.deleteSheet(n)}>Delete</button>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
     <h3>Checks</h3>
     {#if !issues.length && !editor.loadWarnings.length}<p class="hint ok">No problems found.</p>{/if}
     <ul class="issues">
@@ -377,7 +459,7 @@
       <dt>Drag port → port</dt><dd>Connect</dd>
       <dt>Space + drag / middle</dt><dd>Pan</dd>
       <dt>Wheel</dt><dd>Zoom</dd>
-      <dt>R / F</dt><dd>Rotate / flip</dd>
+      <dt>R / F / ⇧F</dt><dd>Rotate / flip / flip vertical</dd>
       <dt>Del</dt><dd>Delete</dd>
       <dt>L</dt><dd>Auto-layout</dd>
       <dt>/</dt><dd>Quick add at pointer</dd>
@@ -468,6 +550,20 @@
     border: 1px solid var(--line);
     border-radius: 6px;
     resize: vertical;
+  }
+  .opts {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    align-items: center;
+    gap: 7px 8px;
+    margin: 10px 0 4px;
+  }
+  .lbl {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .row.tight {
+    margin: 0;
   }
   .row.end {
     margin-top: 18px;
@@ -579,5 +675,23 @@
   }
   .keys dd {
     margin: 0;
+  }
+  .sheets {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+    font-size: 12.5px;
+  }
+  .sheets li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+  }
+  .sheets .mono {
+    font-family: var(--mono);
+  }
+  .sheets button {
+    margin-left: auto;
   }
 </style>

@@ -24,5 +24,6 @@
   ],
   "params": {},
   "label": "Block",
-  "description": "Labelled box with any ports: FIR, FFT, NCO, CORDIC, AGC, FPGA…"
+  "description": "Labelled box with any ports: FIR, FFT, NCO, CORDIC, AGC, FPGA…",
+  "dsp": true
 }

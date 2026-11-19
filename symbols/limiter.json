@@ -1,0 +1,34 @@
+{
+  "id": "limiter",
+  "name": "Limiter / clipper",
+  "category": "gain",
+  "dsp": true,
+  "size": [
+    6,
+    6
+  ],
+  "body": "M1,1 H5 V5 H1 Z M1.6,3 L2,2.4 H2.6 L3.4,3.6 H4 L4.4,3",
+  "mask": "M1,1 H5 V5 H1 Z",
+  "ports": [
+    {
+      "name": "in",
+      "side": "l",
+      "at": 3,
+      "dir": "in",
+      "signal": "se"
+    },
+    {
+      "name": "out",
+      "side": "r",
+      "at": 3,
+      "dir": "out",
+      "signal": "se"
+    }
+  ],
+  "params": {
+    "gain": null,
+    "p1db": null
+  },
+  "label": "",
+  "description": "Limiter or clipper: a sine with flattened peaks."
+}

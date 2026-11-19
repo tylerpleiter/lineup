@@ -40,6 +40,36 @@
         }
       }
     },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Settings for cascade analysis and the frequency plan.",
+      "properties": {
+        "pin": {
+          "type": "number",
+          "description": "Input signal power, dBm."
+        },
+        "path": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Blocks the analysed path runs through, in signal order. Inside a sheet, prefix with the sheet block id and '/': \"fe/lna\". Omit for the main input to the furthest stage."
+        },
+        "fin": {
+          "type": "number",
+          "description": "Input signal frequency, Hz (for sources without their own freq)."
+        },
+        "bw": {
+          "type": "number",
+          "description": "Noise bandwidth, Hz."
+        },
+        "showLevels": {
+          "type": "boolean"
+        },
+        "showFreq": {
+          "type": "boolean"
+        }
+      }
+    },
     "blocks": {
       "type": "array",
       "items": {
@@ -63,6 +93,13 @@
       "items": {
         "$ref": "#/$defs/note"
       }
+    },
+    "sheets": {
+      "type": "object",
+      "description": "Sub-diagrams used by sheet blocks, by name.",
+      "additionalProperties": {
+        "$ref": "#/$defs/sheet"
+      }
     }
   },
   "$defs": {
@@ -81,12 +118,13 @@
         "lo",
         "clk",
         "digital",
+        "complex",
         "ctrl",
         "rf",
         "if",
         "bb"
       ],
-      "description": "Line style. signal = the main RF/IF/baseband path (default). rf, if and bb are accepted from older files and mean signal."
+      "description": "Line style. signal = analog RF/IF/baseband (default), digital = real samples or a bus, complex = complex (I+jQ) samples inside DSP. rf, if and bb are accepted from older files and mean signal."
     },
     "params": {
       "type": "object",
@@ -212,6 +250,10 @@
           "type": "string",
           "description": "Symbol id, see docs/SYMBOLS.md. Unknown types load as custom blocks."
         },
+        "sheet": {
+          "type": "string",
+          "description": "Sheet blocks only: name of the sub-diagram in `sheets`."
+        },
         "label": {
           "type": "string"
         },
@@ -233,6 +275,10 @@
         },
         "flip": {
           "type": "boolean"
+        },
+        "flipV": {
+          "type": "boolean",
+          "description": "Mirror vertically."
         },
         "variant": {
           "type": "string",
@@ -260,6 +306,14 @@
             "diff"
           ]
         },
+        "domain": {
+          "enum": [
+            "signal",
+            "digital",
+            "complex"
+          ],
+          "description": "DSP-capable blocks only (see SYMBOLS.md): what the signal ports carry. Default: the symbol's own (analog for RF blocks, digital for DSP blocks)."
+        },
         "params": {
           "$ref": "#/$defs/params"
         },
@@ -277,7 +331,7 @@
         },
         "icon": {
           "type": "string",
-          "description": "Custom blocks only: SVG path data drawn inside the box, in grid units."
+          "description": "Custom blocks and the filter symbol: SVG path data in grid units, drawn inside the box."
         },
         "size": {
           "type": "array",
@@ -375,6 +429,43 @@
         },
         "near": {
           "type": "string"
+        }
+      }
+    },
+    "sheet": {
+      "type": "object",
+      "required": [
+        "blocks",
+        "connections"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/connection"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/note"
+          }
         }
       }
     }

@@ -51,5 +51,6 @@
       ]
     }
   },
-  "description": "Any amplifier: label it LNA, PA, DRV, VGA… Use the adjustable variant for variable gain."
+  "description": "Any amplifier: label it LNA, PA, DRV, VGA… Use the adjustable variant for variable gain.",
+  "dsp": true
 }

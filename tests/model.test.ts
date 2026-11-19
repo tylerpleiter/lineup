@@ -132,3 +132,65 @@ describe('domains', () => {
     expect(expand(r.doc!).wires[0].domain).toBe('signal');
   });
 });
+
+describe('custom blocks and I/Q', () => {
+  it('an I/Q pair can be packed into a custom block port, and unpacked out of one', () => {
+    const doc: LineupDoc = {
+      lineup: '0.1',
+      blocks: [
+        { id: 'd', type: 'iq_demod' }, { id: 'a', type: 'adc' },
+        { id: 'ssi', type: 'custom', label: 'SSI', ports: [{ name: 'in', side: 'l', dir: 'in', domain: 'digital' }, { name: 'out', side: 'r', dir: 'out', domain: 'digital' }] },
+        { id: 'des', type: 'custom', label: 'DES', ports: [{ name: 'in', side: 'l', dir: 'in', domain: 'digital' }, { name: 'out', side: 'r', dir: 'out', domain: 'digital' }] },
+        { id: 'dac', type: 'dac' }, { id: 'm', type: 'iq_mod' },
+      ],
+      connections: [
+        { from: 'd.i', to: 'a.in' }, { from: 'd.q', to: 'a.in' }, { from: 'a.out', to: 'ssi.in' },
+        { from: 'ssi.out', to: 'des.in' },
+        { from: 'des.out', to: 'dac.in' }, { from: 'dac.out', to: 'm.i' }, { from: 'dac.out', to: 'm.q' },
+      ],
+    };
+    propagateIQ(doc);
+    const by = Object.fromEntries(doc.blocks.map((b) => [b.id, b]));
+    expect(by.a.iq).toBe(true);
+    expect(by.dac.iq).toBe(true);
+    expect(by.ssi.iq).toBeUndefined();
+    const ex = expand(doc);
+    expect(ex.issues).toEqual([]);
+    expect(ex.wires.filter((w) => w.to.block === 'ssi').length).toBe(2);
+    expect(ex.wires.filter((w) => w.from.block === 'des').length).toBe(2);
+  });
+});
+
+describe('block domains', () => {
+  it('a DSP-capable block takes its domain; fixed ports keep theirs', () => {
+    const doc: LineupDoc = {
+      lineup: '0.1',
+      blocks: [{ id: 'a', type: 'adc' }, { id: 'f', type: 'lpf', domain: 'digital' }, { id: 'c', type: 'ddc' }, { id: 'g', type: 'amp', domain: 'complex', signal: 'diff' }],
+      connections: [{ from: 'a.out', to: 'f.in' }, { from: 'f.out', to: 'c.in' }, { from: 'c.out', to: 'g.in' }],
+    };
+    const ex = expand(doc);
+    expect(ex.issues).toEqual([]);
+    expect(ex.wires.map((w) => w.domain)).toEqual(['digital', 'digital', 'complex']);
+    expect(ex.byBlock.get('g')![0].ports.every((p) => p.signal === 'se')).toBe(true);
+  });
+
+  it('warns on analog ↔ digital and real ↔ complex links', () => {
+    const doc: LineupDoc = {
+      lineup: '0.1',
+      blocks: [{ id: 'x', type: 'amp' }, { id: 'f', type: 'lpf', domain: 'digital' }, { id: 'g', type: 'amp', domain: 'complex' }],
+      connections: [{ from: 'x.out', to: 'f.in' }, { from: 'f.out', to: 'g.in' }],
+    };
+    const msgs = expand(doc).issues.map((i) => `${i.level}: ${i.msg}`);
+    expect(msgs).toEqual([
+      'warning: x.out → f.in: analog ↔ real digital; add an ADC/DAC, or set the block\'s domain',
+      'warning: f.out → g.in: real digital ↔ complex; set both blocks to the same domain',
+    ]);
+  });
+
+  it('flipV mirrors a block vertically', () => {
+    const doc: LineupDoc = { lineup: '0.1', blocks: [{ id: 'm', type: 'mixer', x: 0, y: 0, flipV: true }], connections: [] };
+    const lo = expand(doc).byBlock.get('m')![0].ports.find((p) => p.name === 'lo')!;
+    expect(lo.p).toEqual([3, 0]);
+    expect(lo.n).toEqual([0, -1]);
+  });
+});

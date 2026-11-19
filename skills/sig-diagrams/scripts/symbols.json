@@ -12,7 +12,8 @@
      "name": "out",
      "dir": "out",
      "domain": "digital",
-     "signal": "se"
+     "signal": "se",
+     "fixedDomain": true
     }
    ],
    "params": [
@@ -22,6 +23,7 @@
    "variants": {}
   },
   "amp": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
@@ -67,6 +69,7 @@
    "variants": {}
   },
   "att": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
@@ -111,6 +114,7 @@
    "variants": {}
   },
   "bpf": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
@@ -135,6 +139,7 @@
    }
   },
   "bsf": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
@@ -185,46 +190,25 @@
    "variants": {}
   },
   "cmul": {
+   "dsp": true,
    "ports": [
     {
-     "name": "i",
+     "name": "a",
      "dir": "in",
-     "domain": "signal",
+     "domain": "complex",
      "signal": "se"
     },
     {
-     "name": "q",
+     "name": "b",
      "dir": "in",
-     "domain": "signal",
+     "domain": "complex",
      "signal": "se"
     },
     {
-     "name": "lo_i",
-     "dir": "in",
-     "domain": "lo",
-     "signal": "se",
-     "optional": true
-    },
-    {
-     "name": "lo_q",
-     "dir": "in",
-     "domain": "lo",
-     "signal": "se",
-     "optional": true
-    },
-    {
-     "name": "oi",
+     "name": "out",
      "dir": "out",
-     "domain": "signal",
-     "signal": "se",
-     "rail": "i"
-    },
-    {
-     "name": "oq",
-     "dir": "out",
-     "domain": "signal",
-     "signal": "se",
-     "rail": "q"
+     "domain": "complex",
+     "signal": "se"
     }
    ],
    "params": [],
@@ -258,6 +242,7 @@
    "variants": {}
   },
   "custom": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
@@ -281,7 +266,8 @@
      "name": "in",
      "dir": "in",
      "domain": "digital",
-     "signal": "se"
+     "signal": "se",
+     "fixedDomain": true
     },
     {
      "name": "out",
@@ -301,20 +287,16 @@
     {
      "name": "in",
      "dir": "in",
-     "domain": "signal",
-     "signal": "se"
+     "domain": "digital",
+     "signal": "se",
+     "fixedDomain": true
     },
     {
-     "name": "i",
+     "name": "out",
      "dir": "out",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "q",
-     "dir": "out",
-     "domain": "signal",
-     "signal": "se"
+     "domain": "complex",
+     "signal": "se",
+     "fixedDomain": true
     }
    ],
    "params": [
@@ -324,17 +306,18 @@
    "variants": {}
   },
   "decim": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
      "dir": "in",
-     "domain": "signal",
+     "domain": "digital",
      "signal": "se"
     },
     {
      "name": "out",
      "dir": "out",
-     "domain": "signal",
+     "domain": "digital",
      "signal": "se"
     }
    ],
@@ -344,17 +327,18 @@
    "variants": {}
   },
   "delay": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
      "dir": "in",
-     "domain": "signal",
+     "domain": "digital",
      "signal": "se"
     },
     {
      "name": "out",
      "dir": "out",
-     "domain": "signal",
+     "domain": "digital",
      "signal": "se"
     }
    ],
@@ -384,22 +368,18 @@
   "duc": {
    "ports": [
     {
-     "name": "i",
+     "name": "in",
      "dir": "in",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "q",
-     "dir": "in",
-     "domain": "signal",
-     "signal": "se"
+     "domain": "complex",
+     "signal": "se",
+     "fixedDomain": true
     },
     {
      "name": "out",
      "dir": "out",
-     "domain": "signal",
-     "signal": "se"
+     "domain": "digital",
+     "signal": "se",
+     "fixedDomain": true
     }
    ],
    "params": [
@@ -434,6 +414,31 @@
    ],
    "variants": {}
   },
+  "filter": {
+   "dsp": true,
+   "ports": [
+    {
+     "name": "in",
+     "dir": "in",
+     "domain": "signal",
+     "signal": "se"
+    },
+    {
+     "name": "out",
+     "dir": "out",
+     "domain": "signal",
+     "signal": "se"
+    }
+   ],
+   "params": [
+    "fc",
+    "il"
+   ],
+   "variants": {
+    "preemph": [],
+    "deemph": []
+   }
+  },
   "ground": {
    "ports": [
     {
@@ -447,6 +452,7 @@
    "variants": {}
   },
   "hpf": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
@@ -502,17 +508,18 @@
    "variants": {}
   },
   "interp": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
      "dir": "in",
-     "domain": "signal",
+     "domain": "digital",
      "signal": "se"
     },
     {
      "name": "out",
      "dir": "out",
-     "domain": "signal",
+     "domain": "digital",
      "signal": "se"
     }
    ],
@@ -607,6 +614,28 @@
    ],
    "variants": {}
   },
+  "limiter": {
+   "dsp": true,
+   "ports": [
+    {
+     "name": "in",
+     "dir": "in",
+     "domain": "signal",
+     "signal": "se"
+    },
+    {
+     "name": "out",
+     "dir": "out",
+     "domain": "signal",
+     "signal": "se"
+    }
+   ],
+   "params": [
+    "gain",
+    "p1db"
+   ],
+   "variants": {}
+  },
   "lo": {
    "ports": [
     {
@@ -639,6 +668,7 @@
    }
   },
   "lpf": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
@@ -662,6 +692,7 @@
    }
   },
   "mixer": {
+   "dsp": true,
    "ports": [
     {
      "name": "rf",
@@ -709,7 +740,43 @@
    ],
    "variants": {}
   },
+  "node": {
+   "dsp": true,
+   "ports": [
+    {
+     "name": "in",
+     "dir": "in",
+     "domain": "digital",
+     "signal": "se",
+     "optional": true
+    },
+    {
+     "name": "o1",
+     "dir": "out",
+     "domain": "digital",
+     "signal": "se",
+     "optional": true
+    },
+    {
+     "name": "o2",
+     "dir": "out",
+     "domain": "digital",
+     "signal": "se",
+     "optional": true
+    },
+    {
+     "name": "o3",
+     "dir": "out",
+     "domain": "digital",
+     "signal": "se",
+     "optional": true
+    }
+   ],
+   "params": [],
+   "variants": {}
+  },
   "phase": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
@@ -732,6 +799,7 @@
    }
   },
   "port_in": {
+   "dsp": true,
    "ports": [
     {
      "name": "out",
@@ -744,6 +812,7 @@
    "variants": {}
   },
   "port_out": {
+   "dsp": true,
    "ports": [
     {
      "name": "in",
@@ -755,37 +824,9 @@
    "params": [],
    "variants": {}
   },
-  "spdt": {
-   "ports": [
-    {
-     "name": "c",
-     "dir": "bi",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "t1",
-     "dir": "bi",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "t2",
-     "dir": "bi",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "ctrl",
-     "dir": "in",
-     "domain": "ctrl",
-     "signal": "se",
-     "optional": true
-    }
-   ],
-   "params": [
-    "il"
-   ],
+  "sheet": {
+   "ports": [],
+   "params": [],
    "variants": {}
   },
   "splitter": {
@@ -814,73 +855,38 @@
    ],
    "variants": {}
   },
-  "spnt": {
-   "ports": [
-    {
-     "name": "c",
-     "dir": "bi",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "t1",
-     "dir": "bi",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "t2",
-     "dir": "bi",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "t3",
-     "dir": "bi",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "t4",
-     "dir": "bi",
-     "domain": "signal",
-     "signal": "se"
-    },
-    {
-     "name": "ctrl",
-     "dir": "in",
-     "domain": "ctrl",
-     "signal": "se",
-     "optional": true
-    }
-   ],
-   "params": [
-    "il"
-   ],
-   "variants": {}
-  },
   "sum": {
+   "dsp": true,
    "ports": [
     {
      "name": "a",
      "dir": "in",
-     "domain": "signal",
+     "domain": "digital",
      "signal": "se"
     },
     {
      "name": "b",
      "dir": "in",
-     "domain": "signal",
+     "domain": "digital",
      "signal": "se"
     },
     {
      "name": "out",
      "dir": "out",
-     "domain": "signal",
+     "domain": "digital",
      "signal": "se"
     }
    ],
    "params": [],
+   "variants": {}
+  },
+  "switch": {
+   "generator": "switch",
+   "ports": [],
+   "params": [
+    "throws",
+    "il"
+   ],
    "variants": {}
   },
   "term": {
@@ -984,34 +990,80 @@
   },
   "fir": {
    "type": "custom",
-   "label": "FIR"
+   "label": "FIR",
+   "domain": "digital"
   },
   "iir": {
    "type": "custom",
-   "label": "IIR"
+   "label": "IIR",
+   "domain": "digital"
   },
   "fft": {
    "type": "custom",
-   "label": "FFT"
+   "label": "FFT",
+   "domain": "digital"
   },
   "cordic": {
    "type": "custom",
-   "label": "CORDIC"
+   "label": "CORDIC",
+   "domain": "digital"
   },
   "agc": {
    "type": "custom",
-   "label": "AGC"
+   "label": "AGC",
+   "domain": "digital"
   },
   "nco": {
    "type": "custom",
    "label": "NCO",
+   "domain": "complex",
    "customPorts": [
     {
      "name": "out",
      "side": "r",
-     "dir": "out"
+     "dir": "out",
+     "domain": "complex"
     }
    ]
+  },
+  "spdt": {
+   "type": "switch",
+   "params": {
+    "throws": 2
+   }
+  },
+  "sp3t": {
+   "type": "switch",
+   "params": {
+    "throws": 3
+   }
+  },
+  "sp4t": {
+   "type": "switch",
+   "params": {
+    "throws": 4
+   }
+  },
+  "spnt": {
+   "type": "switch",
+   "params": {
+    "throws": 4
+   }
+  },
+  "clipper": {
+   "type": "limiter",
+   "label": "Clipper"
+  },
+  "preemph": {
+   "type": "filter",
+   "variant": "preemph"
+  },
+  "deemph": {
+   "type": "filter",
+   "variant": "deemph"
+  },
+  "junction": {
+   "type": "node"
   }
  }
 }

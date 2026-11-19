@@ -6,18 +6,20 @@ describe('symbol library', () => {
   const defs = Object.values(SYMBOLS);
 
   it('has one symbol per distinct drawing', () => {
-    expect(defs.length).toBe(38);
+    expect(defs.length).toBe(41);
   });
 
-  for (const d of defs) {
-    it(`${d.id} is well formed`, () => {
+  for (const raw of defs) {
+    it(`${raw.id} is well formed`, () => {
+      // Generated symbols (switch) are checked as drawn.
+      const d = raw.generator ? symbolFor({ id: 'x', type: raw.id }).def : raw;
       expect(CATEGORY_ORDER).toContain(d.category);
       const [w, h] = d.size;
       expect(w % 2 === 0 && h % 2 === 0).toBe(true);
       const names = d.ports.map((p) => p.name);
       expect(new Set(names).size).toBe(names.length);
-      if (d.id !== 'custom') {
-        expect(d.body.length).toBeGreaterThan(0);
+      if (d.id !== 'custom' && d.id !== 'sheet') {
+        expect(d.body.length + (d.fill ?? '').length).toBeGreaterThan(0);
         for (const p of d.ports) {
           expect(Number.isInteger(p.at)).toBe(true);
           const len = p.side === 'l' || p.side === 'r' ? h : w;
@@ -29,6 +31,7 @@ describe('symbol library', () => {
         expect(v.name).toBeTruthy();
         const withV = symbolFor({ id: 'x', type: d.id, variant: vk }).def;
         expect(withV.body.length).toBeGreaterThan(d.body.length);
+        if (v.texts) expect(withV.texts).toEqual(v.texts);
       }
     });
   }
@@ -81,5 +84,24 @@ describe('aliases', () => {
     expect(by.n.ports?.[0].name).toBe('out');
     expect(d.connections.map((c) => `${c.from}>${c.to}`)).toEqual(['l.out>c.o1', 'p.out>c.o2', 'c.in>x.tx', 'n.out>f.in']);
     expect(expand(d).issues.filter((i) => i.level === 'error')).toEqual([]);
+  });
+});
+
+describe('generated switch', () => {
+  it('sizes to its throws, keeps ports on grid and names throws t1…tN', () => {
+    for (const n of [2, 3, 4, 8]) {
+      const d = symbolFor({ id: 's', type: 'switch', params: { throws: n } }).def;
+      expect(d.size).toEqual([6, 2 * n + 2]);
+      const t = d.ports.filter((p) => p.name.startsWith('t'));
+      expect(t.map((p) => p.name)).toEqual(Array.from({ length: n }, (_, k) => `t${k + 1}`));
+      expect(t.every((p) => Number.isInteger(p.at) && p.at! > 0 && p.at! < 2 * n + 2)).toBe(true);
+      expect(d.ports.find((p) => p.name === 'c')!.at).toBe(n + 1);
+    }
+  });
+
+  it('spdt / sp4t aliases become switches with the right throws', async () => {
+    const { parseDoc } = await import('../src/io/schema');
+    const d = parseDoc(JSON.stringify({ lineup: '0.1', blocks: [{ id: 'a', type: 'spdt' }, { id: 'b', type: 'sp4t' }], connections: [] })).doc!;
+    expect(d.blocks.map((b) => [b.type, b.params?.throws])).toEqual([['switch', 2], ['switch', 4]]);
   });
 });

@@ -4,12 +4,19 @@
 export type Side = 'l' | 'r' | 't' | 'b';
 export type Dir = 'in' | 'out' | 'bi';
 export type Signal = 'se' | 'diff';
-/** Line-style domain. `signal` is the main RF/IF/baseband path; the others are drawn differently. */
-export type Domain = 'signal' | 'lo' | 'clk' | 'digital' | 'ctrl';
+/**
+ * Line-style domain. `signal` is the analog RF/IF/baseband path, `digital` a real-valued
+ * sample stream or bus, `complex` a complex (I+jQ) sample stream inside DSP; the rest are
+ * auxiliary lines.
+ */
+export type Domain = 'signal' | 'lo' | 'clk' | 'digital' | 'complex' | 'ctrl';
+/** What a DSP-capable block's signal ports carry, set per block. */
+export type BlockDomain = 'signal' | 'digital' | 'complex';
 export type Rail = 'i' | 'q';
 export type Rot = 0 | 90 | 180 | 270;
 
-export const DOMAINS: Domain[] = ['signal', 'lo', 'clk', 'digital', 'ctrl'];
+export const DOMAINS: Domain[] = ['signal', 'lo', 'clk', 'digital', 'complex', 'ctrl'];
+export const BLOCK_DOMAINS: BlockDomain[] = ['signal', 'digital', 'complex'];
 
 /** Older files used rf / if / bb; they all mean the signal path. */
 export function normDomain(d: string | undefined): Domain {
@@ -44,6 +51,8 @@ export interface PortDef {
   optional?: boolean;
   /** This port carries one I/Q rail. Ports named "i"/"q" are rail ports implicitly. */
   rail?: Rail;
+  /** Domain is fixed by the symbol and ignores the block-level domain (e.g. an ADC's digital output). */
+  fixedDomain?: boolean;
 }
 
 export function railOf(p: { name: string; rail?: Rail } | undefined): Rail | undefined {
@@ -57,6 +66,8 @@ export interface SymbolVariant {
   body?: string;
   fill?: string;
   ports?: PortDef[];
+  /** Replaces the symbol's texts when set (e.g. a drawn response instead of "H(f)"). */
+  texts?: SymbolText[];
 }
 
 export interface SymbolText {
@@ -88,6 +99,12 @@ export interface SymbolDef {
   /** Draw the label inside the body instead of below it (custom blocks). */
   labelInside?: boolean;
   description?: string;
+  /** The block-level domain (analog / digital / complex) can be switched. */
+  dsp?: boolean;
+  /** A block's `icon` path may be drawn in this symbol, replacing its texts. */
+  iconSlot?: boolean;
+  /** Geometry is generated from params at load (e.g. "switch" from `throws`). */
+  generator?: string;
 }
 
 export interface Block {
@@ -98,19 +115,25 @@ export interface Block {
   y?: number;
   rot?: Rot;
   flip?: boolean;
+  /** Mirror vertically. */
+  flipV?: boolean;
   iq?: boolean;
   iqOverride?: Partial<Record<Rail, { params?: Params; label?: string }>>;
   signal?: Signal;
+  /** For DSP-capable blocks: what the signal ports carry (default: the symbol's own). */
+  domain?: BlockDomain;
   params?: Params;
   show?: string[];
   /** Symbol variant, e.g. "adjustable". */
   variant?: string;
   /** Custom blocks only. */
   ports?: PortDef[];
-  /** Custom blocks only: extra SVG path drawn in the cell, in grid units. */
+  /** Custom blocks, and symbols with an icon slot (filter): SVG path drawn in the cell, in grid units. */
   icon?: string;
   /** Custom blocks only: cell size in grid units [w, h]. */
   size?: [number, number];
+  /** Sheet blocks only: name of the sub-diagram in the document's `sheets`. */
+  sheet?: string;
 }
 
 export interface Connection {
@@ -141,15 +164,46 @@ export interface DocStyle {
   pmMarks?: boolean;
 }
 
+/** Settings for cascade analysis and the frequency plan. */
+export interface Analysis {
+  /** Input signal power, dBm (enables running levels and SNR). */
+  pin?: number;
+  /** Input signal frequency, Hz (for sources without their own `freq`). */
+  fin?: number;
+  /** Noise bandwidth, Hz (for noise floor and SNR). */
+  bw?: number;
+  /**
+   * Blocks the analysed path runs through, in flattened ids ("fe/lna" for a block inside
+   * sheet block "fe"). Empty or absent: from the main input to the furthest stage.
+   */
+  path?: string[];
+  /** Print signal levels along the analysed path on the diagram. */
+  showLevels?: boolean;
+  /** Print frequencies on wires. */
+  showFreq?: boolean;
+}
+
+/** A sub-diagram. Its port_in / port_out blocks become the ports of the sheet blocks that use it. */
+export interface Sheet {
+  title?: string;
+  blocks: Block[];
+  connections: Connection[];
+  groups?: Group[];
+  notes?: Note[];
+}
+
 export interface LineupDoc {
   lineup: string;
   title?: string;
   theme?: 'mono' | 'color';
   style?: DocStyle;
+  analysis?: Analysis;
   blocks: Block[];
   connections: Connection[];
   groups?: Group[];
   notes?: Note[];
+  /** Sub-diagrams used by `sheet` blocks, by name. */
+  sheets?: Record<string, Sheet>;
 }
 
 export const FORMAT_VERSION = '0.1';

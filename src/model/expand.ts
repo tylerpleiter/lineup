@@ -4,6 +4,7 @@
 import { apply, applyVec, cellMatrix, mul, rotatedSize, sideLocal, type Mat, type Pt } from './geometry';
 import { formatParam } from './params';
 import { symbolFor } from './symbols';
+import { sheetPorts } from './sheets';
 import {
   RAIL_PITCH,
   SIGNAL_PATH_DOMAINS,
@@ -128,25 +129,45 @@ function railParams(b: Block, rail?: Rail): Params {
   return base;
 }
 
-export function portSignal(b: Block, p: PortDef): Signal {
-  const dom = p.domain ?? 'signal';
-  if (!p.fixed && b.signal && SIGNAL_PATH_DOMAINS.includes(dom)) return b.signal;
+/**
+ * A port's domain after the block-level setting: a DSP-capable block set to digital or
+ * complex carries that on its signal (and LO) ports, unless the symbol fixes the port.
+ */
+export function portDomain(b: Block, def: SymbolDef, p: PortDef): Domain {
+  const base = p.domain ?? 'signal';
+  if (!def.dsp || !b.domain || p.fixedDomain) return base;
+  if (base === 'signal' || base === 'digital' || base === 'complex') return b.domain;
+  if (base === 'lo' && b.domain !== 'signal') return b.domain;
+  return base;
+}
+
+export function portSignal(b: Block, p: PortDef, domain: Domain = p.domain ?? 'signal'): Signal {
+  // A complex stream is one logical line; it has no differential form.
+  if (domain === 'complex') return 'se';
+  if (!p.fixed && b.signal && SIGNAL_PATH_DOMAINS.includes(domain)) return b.signal;
   return p.signal ?? 'se';
 }
 
+/** Custom and unknown blocks can pack an I/Q pair into one port, or unpack one port into a pair. */
+export function isCustomBlock(def: SymbolDef): boolean {
+  return !!def.labelInside;
+}
+
 function buildInstance(doc: LineupDoc, b: Block, rail?: Rail): Instance {
-  const { def, known } = symbolFor(b, SYMBOLS_UNKNOWN(b) ? inferPorts(doc, b.id) : undefined);
+  const { def, known } = symbolFor(b, b.type === 'sheet' ? sheetPorts(doc, b) : SYMBOLS_UNKNOWN(b) ? inferPorts(doc, b.id) : undefined);
   const rot = b.rot ?? 0;
   const [w, h] = rotatedSize(def.size, rot);
   const x = b.x ?? 0;
   const y = (b.y ?? 0) + (rail === 'q' ? RAIL_PITCH : 0);
-  const m = mul([1, 0, 0, 1, x, y], cellMatrix(def.size, rot, !!b.flip));
+  const m = mul([1, 0, 0, 1, x, y], cellMatrix(def.size, rot, !!b.flip, !!b.flipV));
   const id = rail ? `${b.id}:${rail}` : b.id;
   const params = railParams(b, rail);
   const ports: PortInst[] = def.ports.map((pd) => {
     const loc = sideLocal(pd.side, pd.at ?? 0, def.size);
     let width = pd.width;
     if (pd.widthFrom && typeof params[pd.widthFrom] === 'number') width = params[pd.widthFrom] as number;
+    const domain = portDomain(b, def, pd);
+    const signal = portSignal(b, pd, domain);
     return {
       key: `${id}.${pd.name}`,
       inst: id,
@@ -157,17 +178,17 @@ function buildInstance(doc: LineupDoc, b: Block, rail?: Rail): Instance {
       p: apply(m, loc.p),
       n: applyVec(m, loc.n),
       dir: pd.dir,
-      signal: portSignal(b, pd),
-      domain: pd.domain ?? 'signal',
+      signal,
+      domain,
       width,
-      lead: portSignal(b, pd) === 'diff' ? (pd.diffLead ?? pd.lead ?? 1) : (pd.lead ?? 1),
+      lead: signal === 'diff' ? (pd.diffLead ?? pd.lead ?? 1) : (pd.lead ?? 1),
     };
   });
   return { id, block: b, rail, def, known, x, y, w, h, m, ports, params, labelLines: [] };
 }
 
 function SYMBOLS_UNKNOWN(b: Block): boolean {
-  return !symbolFor(b).known || b.type === 'custom';
+  return b.type !== 'sheet' && (!symbolFor(b).known || b.type === 'custom');
 }
 
 function labelText(b: Block, def: SymbolDef, rail?: Rail): string {
@@ -196,7 +217,7 @@ function shownLines(b: Block, inst: Instance, other?: Instance): string[] {
 function pickDomain(c: Connection, a: PortInst, b: PortInst): Domain {
   if (c.domain) return c.domain;
   const ds = [a.domain, b.domain];
-  for (const d of ['digital', 'lo', 'clk', 'ctrl'] as Domain[]) if (ds.includes(d)) return d;
+  for (const d of ['complex', 'digital', 'lo', 'clk', 'ctrl'] as Domain[]) if (ds.includes(d)) return d;
   return a.domain;
 }
 
@@ -216,6 +237,7 @@ export function expand(doc: LineupDoc): Expanded {
     const rails: (Rail | undefined)[] = b.iq ? ['i', 'q'] : [undefined];
     const list = rails.map((r) => buildInstance(doc, b, r));
     if (!list[0].known) issues.push({ level: 'warning', msg: `Unknown block type "${b.type}" on ${b.id}; drawn as a custom block`, block: b.id });
+    if (b.type === 'sheet' && !(b.sheet && doc.sheets?.[b.sheet])) issues.push({ level: 'error', msg: `${b.id}: sheet "${b.sheet ?? ''}" doesn't exist`, block: b.id });
     for (const inst of list) {
       instances.push(inst);
       byId.set(inst.id, inst);
@@ -303,6 +325,8 @@ export function expand(doc: LineupDoc): Expanded {
       if (fRail) pairs = [{ tr: fRail, mark: fRail.toUpperCase() }];
       else if (t.rail) pairs = [{ tr: t.rail }];
       else if (auxDomain(fp0.domain) || auxDomain(tp0.domain)) pairs = [{ tr: 'i' }, { tr: 'q' }];
+      // A custom block (e.g. a deserializer) can unpack one port into both rails.
+      else if (isCustomBlock(fb[0].def)) pairs = [{ tr: 'i' }, { tr: 'q' }];
       else {
         issues.push({ level: 'error', msg: `${c.from} → ${c.to}: a single path can't feed an I/Q pair; use a split block (I/Q demodulator, DDC) or pick a rail`, conn: ci });
         pairs = [{ tr: 'i' }];
@@ -310,6 +334,8 @@ export function expand(doc: LineupDoc): Expanded {
     } else if (fIQ && !tIQ) {
       if (tRail) pairs = [{ fr: tRail }];
       else if (f.rail) pairs = [{ fr: f.rail }];
+      // A custom block (e.g. a serializer) can pack both rails into one port.
+      else if (isCustomBlock(tb[0].def)) pairs = [{ fr: 'i' }, { fr: 'q' }];
       else {
         issues.push({ level: 'error', msg: `${c.from} → ${c.to}: an I/Q pair can only end at a merge block (I/Q modulator, DUC) or a chosen rail`, conn: ci });
         pairs = [{ fr: 'i' }];
@@ -336,6 +362,14 @@ export function expand(doc: LineupDoc): Expanded {
         signal = 'se';
       }
       const domain = pickDomain(c, a, b);
+      const kind = (d: Domain) => (d === 'signal' ? 'analog' : d === 'digital' ? 'real digital' : d === 'complex' ? 'complex' : null);
+      const ka = kind(a.domain);
+      const kb = kind(b.domain);
+      if (!c.domain && ka && kb && ka !== kb) {
+        const fix = ka === 'analog' || kb === 'analog' ? 'add an ADC/DAC, or set the block\'s domain' : 'set both blocks to the same domain';
+        issues.push({ level: 'warning', msg: `${c.from} → ${c.to}: ${ka} ↔ ${kb}; ${fix}`, conn: ci });
+        level = level ?? 'warning';
+      }
       let width = a.width ?? b.width;
       if (domain === 'digital' && a.width && b.width && a.width !== b.width) {
         issues.push({ level: 'warning', msg: `${c.from} → ${c.to}: bus width ${a.width} ≠ ${b.width}`, conn: ci });
@@ -368,7 +402,8 @@ export function expand(doc: LineupDoc): Expanded {
     drivers.set(w.to.key, list);
   }
   for (const [key, list] of drivers) {
-    if (list.length > 1) {
+    // Both rails of one I/Q connection packed into a custom block's port count as one driver.
+    if (new Set(list.map((w) => w.conn)).size > 1) {
       issues.push({ level: 'error', msg: `${key} has ${list.length} drivers; use a combiner or sum block`, conn: list[0].conn });
       for (const w of list) w.level = 'error';
     }

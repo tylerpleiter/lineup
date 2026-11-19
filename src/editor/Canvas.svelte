@@ -90,15 +90,16 @@
         else s.add(id);
         editor.sel = { blocks: [...s], conn: null };
       } else if (!selected.has(id)) editor.sel = { blocks: [id], conn: null };
+      if (editor.sel.blocks.length === 1) editor.rememberStyle(editor.sel.blocks[0]);
       const orig = new Map<string, [number, number]>();
-      for (const b of editor.doc.blocks) if (editor.sel.blocks.includes(b.id)) orig.set(b.id, [b.x ?? 0, b.y ?? 0]);
+      for (const b of editor.cur.blocks) if (editor.sel.blocks.includes(b.id)) orig.set(b.id, [b.x ?? 0, b.y ?? 0]);
       editor.beginDirect();
       mode = { kind: 'drag', start: world(e), orig, moved: false };
       return;
     }
     if (noteEl) {
       const index = Number(noteEl.getAttribute('data-note'));
-      const nb = noteBoxes(editor.doc, ex)[index];
+      const nb = noteBoxes(editor.cur, ex)[index];
       editor.sel = { blocks: [], conn: null, note: index };
       editor.beginDirect();
       mode = { kind: 'note', index, start: world(e), orig: [nb.x, nb.y], moved: false };
@@ -107,10 +108,10 @@
     if (groupEl) {
       // Grabbing a group's frame selects it and drags its members together.
       const id = groupEl.getAttribute('data-group')!;
-      const g = editor.doc.groups?.find((x) => x.id === id);
+      const g = editor.cur.groups?.find((x) => x.id === id);
       editor.sel = { blocks: [], conn: null, group: id };
       const orig = new Map<string, [number, number]>();
-      for (const b of editor.doc.blocks) if (g?.members.includes(b.id)) orig.set(b.id, [b.x ?? 0, b.y ?? 0]);
+      for (const b of editor.cur.blocks) if (g?.members.includes(b.id)) orig.set(b.id, [b.x ?? 0, b.y ?? 0]);
       editor.beginDirect();
       mode = { kind: 'drag', start: world(e), orig, moved: false };
       return;
@@ -141,7 +142,7 @@
       const p = world(e);
       const du = Math.round((p[0] - m.start[0]) / G);
       const dv = Math.round((p[1] - m.start[1]) / G);
-      for (const b of editor.doc.blocks) {
+      for (const b of editor.cur.blocks) {
         const o = m.orig.get(b.id);
         if (!o) continue;
         if (b.x !== o[0] + du) b.x = o[0] + du;
@@ -152,7 +153,7 @@
       const p = world(e);
       const du = Math.round((p[0] - m.start[0]) / G);
       const dv = Math.round((p[1] - m.start[1]) / G);
-      const n = editor.doc.notes?.[m.index];
+      const n = editor.cur.notes?.[m.index];
       if (n && (du || dv || m.moved)) {
         // Dragging a note attached to a block detaches it to a fixed position.
         delete n.near;
@@ -207,7 +208,7 @@
       for (const i of ex.instances) if (i.x < x1 && i.x + i.w > x0 && i.y < y1 && i.y + i.h > y0) hit.add(i.block.id);
       editor.sel = { blocks: [...hit], conn: null };
     } else if (m.kind === 'wire' && m.target) {
-      const err = editor.connect(m.from.key, m.target.key);
+      const err = editor.connect(m.from.key, m.target.key, { oneRail: e.altKey });
       if (err) editor.notify(err, 'error');
     }
   }
@@ -235,11 +236,27 @@
     editor.trySplice(id);
   }
 
+  /** Is this instance (or, for a sheet block, something inside it) on the analysed path? */
+  const pathSet = $derived(editor.analysisOpen && editor.cascade && !editor.cascade.error ? new Set(editor.cascade.path) : null);
+  function onPath(inst: (typeof ex.instances)[number]): boolean {
+    if (!pathSet) return false;
+    const id = editor.prefix + inst.id;
+    if (pathSet.has(id)) return true;
+    if (inst.block.type !== 'sheet') return false;
+    const inside = `${editor.prefix}${inst.block.id}/`;
+    for (const p of pathSet) if (p.startsWith(inside)) return true;
+    return false;
+  }
+
   function onDbl(e: MouseEvent) {
+    // Pointer capture can retarget the click to the svg, so look at what is under the pointer.
+    const under = document.elementFromPoint(e.clientX, e.clientY) ?? (e.target as Element);
+    const instEl = under.closest('[data-inst]') ?? (e.target as Element).closest('[data-inst]');
+    if (instEl && editor.openSheet(instEl.getAttribute('data-inst')!)) return;
     const connEl = (e.target as Element).closest('[data-conn]');
     if (!connEl) return;
     const ci = Number(connEl.getAttribute('data-conn'));
-    if (editor.doc.connections[ci]?.via) {
+    if (editor.cur.connections[ci]?.via) {
       editor.updateConn(ci, (c) => delete c.via);
       editor.notify('Wire reset to automatic routing');
     }
@@ -269,8 +286,8 @@
     };
   });
 
-  const gboxes = $derived(groupBoxes(editor.doc, ex));
-  const nboxes = $derived(noteBoxes(editor.doc, ex));
+  const gboxes = $derived(groupBoxes(editor.cur, ex));
+  const nboxes = $derived(noteBoxes(editor.cur, ex));
   const showPortsFor = $derived(new Set([...(hoverInst ? [hoverInst] : []), ...editor.sel.blocks]));
   const issueWires = $derived(editor.routed.routes.filter((r) => r.wire.level));
   const gridSize = $derived(G * editor.view.k);
@@ -286,6 +303,7 @@
     onwheel={onWheel}
     ondblclick={onDbl}
     oncontextmenu={(e) => e.preventDefault()}
+    ondragstart={(e) => e.preventDefault()}
     role="presentation"
   >
     <defs>
@@ -301,11 +319,16 @@
     <rect width="100%" height="100%" fill="url(#grid5)" />
 
     <g transform={`translate(${editor.view.tx},${editor.view.ty}) scale(${editor.view.k})`}>
-      <g id="lineup-diagram">
-        <Diagram {ex} routed={editor.routed} doc={editor.doc} theme={themeFor(editor.doc.theme)} />
+      <g id="lineup-diagram" pointer-events="none">
+        <Diagram {ex} routed={editor.routed} doc={editor.cur} theme={themeFor(editor.doc.theme)} notes={editor.wireNotes} />
       </g>
 
       <g class="ui">
+        {#each ex.instances as inst (inst.id)}
+          {#if onPath(inst)}
+            <rect x={px(inst.x) - 4} y={px(inst.y) - 4} width={px(inst.w) + 8} height={px(inst.h) + 8} rx="4" fill="#30a46c" fill-opacity="0.09" stroke="#30a46c" stroke-opacity="0.5" stroke-width={1 / editor.view.k} pointer-events="none" />
+          {/if}
+        {/each}
         {#each gboxes as gb (gb.id)}
           {@const sel = editor.sel.group === gb.id}
           <rect data-group={gb.id} x={px(gb.x0)} y={px(gb.y0)} width={px(gb.x1 - gb.x0)} height={px(gb.y1 - gb.y0)} fill="none" stroke={sel ? '#2f6feb' : 'transparent'} stroke-width={sel ? 2 / editor.view.k : 8} stroke-opacity={sel ? 0.6 : 1} class="grouphit" pointer-events="stroke" />
@@ -398,6 +421,20 @@
       </g>
     </g>
   </svg>
+  {#if editor.sheetPath.length}
+    <nav class="crumbs" aria-label="Sheet path">
+      <button onclick={() => editor.goTo([])}>{editor.doc.title ?? 'Top level'}</button>
+      {#each editor.sheetPath as name, i}
+        <span>›</span>
+        {#if i === editor.sheetPath.length - 1}
+          <strong>{editor.doc.sheets?.[name]?.title ?? name}</strong>
+        {:else}
+          <button onclick={() => editor.goTo(editor.sheetPath.slice(0, i + 1))}>{editor.doc.sheets?.[name]?.title ?? name}</button>
+        {/if}
+      {/each}
+      <span class="hint">{editor.blockPath.at(-1)} · Esc to go up</span>
+    </nav>
+  {/if}
   <QuickAdd />
   {#if !ex.instances.length}
     <div class="empty">
@@ -407,10 +444,40 @@
 </div>
 
 <style>
+  .crumbs {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 12.5px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  }
+  .crumbs button {
+    all: unset;
+    cursor: pointer;
+    color: #2f6feb;
+  }
+  .crumbs button:hover {
+    text-decoration: underline;
+  }
+  .crumbs span {
+    color: var(--muted);
+  }
+  .crumbs .hint {
+    margin-left: 8px;
+    font-size: 11px;
+  }
   .host {
     position: relative;
     flex: 1;
     min-width: 0;
+    min-height: 0;
     overflow: hidden;
     outline: none;
   }

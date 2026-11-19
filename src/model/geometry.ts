@@ -25,12 +25,14 @@ export function applyVec(m: Mat, v: Pt): Pt {
 }
 
 /**
- * Local transform of a symbol cell of size [w, h]: flip first, then rotate clockwise,
- * then shift so the rotated cell's top-left corner is at (0, 0).
+ * Local transform of a symbol cell of size [w, h]: flip (horizontal, then vertical) first,
+ * then rotate clockwise, then shift so the rotated cell's top-left corner is at (0, 0).
  */
-export function cellMatrix(size: [number, number], rot: Rot = 0, flip = false): Mat {
+export function cellMatrix(size: [number, number], rot: Rot = 0, flip = false, flipV = false): Mat {
   const [w, h] = size;
-  const F: Mat = flip ? [-1, 0, 0, 1, w, 0] : [1, 0, 0, 1, 0, 0];
+  const FH: Mat = flip ? [-1, 0, 0, 1, w, 0] : [1, 0, 0, 1, 0, 0];
+  const FV: Mat = flipV ? [1, 0, 0, -1, 0, h] : [1, 0, 0, 1, 0, 0];
+  const F = mul(FV, FH);
   let R: Mat;
   switch (rot) {
     case 90:

@@ -18,5 +18,7 @@
     }
   ],
   "params": {},
-  "label": "OUT"
+  "label": "OUT",
+  "dsp": true,
+  "description": "Off-page output. Inside a sheet it becomes an output port of the sheet block, named after this block's id."
 }

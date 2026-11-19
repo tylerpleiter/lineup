@@ -1,0 +1,12 @@
+{
+  "id": "sheet",
+  "name": "Sheet (sub-diagram)",
+  "category": "generic",
+  "size": [8, 6],
+  "body": "",
+  "labelInside": true,
+  "ports": [],
+  "params": {},
+  "label": "Sheet",
+  "description": "A sub-diagram in the same file (set `sheet` to its name). Its port_in / port_out blocks become this block's ports. Double-click to open."
+}

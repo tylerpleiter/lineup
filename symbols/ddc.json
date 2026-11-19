@@ -4,46 +4,44 @@
   "category": "dsp",
   "size": [
     6,
-    12
+    6
   ],
-  "body": "M1,1 H5 V11 H1 Z",
-  "mask": "M1,1 H5 V11 H1 Z",
+  "body": "M1,1 H5 V5 H1 Z",
+  "mask": "M1,1 H5 V5 H1 Z",
   "texts": [
     {
       "text": "DDC",
       "at": [
         3,
-        6
+        3
       ],
-      "size": 1
+      "size": 1.0
     }
   ],
   "ports": [
     {
       "name": "in",
       "side": "l",
-      "at": 6,
+      "at": 3,
       "dir": "in",
-      "signal": "se"
+      "signal": "se",
+      "domain": "digital",
+      "fixedDomain": true
     },
     {
-      "name": "i",
+      "name": "out",
       "side": "r",
       "at": 3,
       "dir": "out",
-      "signal": "se"
-    },
-    {
-      "name": "q",
-      "side": "r",
-      "at": 9,
-      "dir": "out",
-      "signal": "se"
+      "signal": "se",
+      "domain": "complex",
+      "fixedDomain": true
     }
   ],
   "params": {
     "freq": null,
     "ratio": null
   },
-  "label": ""
+  "label": "",
+  "description": "Real samples in, complex baseband out."
 }

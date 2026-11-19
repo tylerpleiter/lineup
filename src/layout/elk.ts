@@ -2,7 +2,9 @@
 // I/Q pairs are laid out as one node twice the rail pitch tall so both rails stay straight.
 // LO / clock / control sources are kept out of the main flow and placed next to the port they feed.
 
-import { expand, type Expanded, type Instance, type PortInst } from '../model/expand';
+import { expand, parseRef, type Expanded, type Instance, type PortInst } from '../model/expand';
+import { signalOrder } from '../model/doc';
+import { symbolFor } from '../model/symbols';
 import { labelBox } from '../render/route';
 import { G, type Block, type LineupDoc } from '../model/types';
 
@@ -37,6 +39,44 @@ function overlaps(a: { x: number; y: number; w: number; h: number }, b: { x: num
 }
 
 /**
+ * Turn blocks whose signal ports are all bidirectional (switches, splitters, duplexers,
+ * antennas…) to face the signal flow: neighbours upstream on the left, downstream on the
+ * right. Without this a combining switch keeps its throws on the far side from its inputs.
+ */
+export function orientBidirectional(doc: LineupDoc, ids: Set<string>): string[] {
+  const rank = new Map(signalOrder(doc).map((b, i) => [b.id, i]));
+  const flipped: string[] = [];
+  for (const b of doc.blocks) {
+    if (!ids.has(b.id) || (b.rot ?? 0) !== 0) continue;
+    const def = symbolFor(b).def;
+    const sig = def.ports.filter((p) => !AUX.has(p.domain ?? 'signal'));
+    if (!sig.length || sig.some((p) => p.dir !== 'bi')) continue;
+    const side = new Map(sig.map((p) => [p.name, p.side]));
+    let wrong = 0;
+    let right = 0;
+    for (const c of doc.connections) {
+      for (const [mine, other] of [[c.from, c.to], [c.to, c.from]]) {
+        const m = parseRef(mine);
+        const o = parseRef(other);
+        if (!m || !o || m.block !== b.id || o.block === b.id) continue;
+        const s0 = side.get(m.port);
+        if (s0 !== 'l' && s0 !== 'r') continue;
+        const s = b.flip ? (s0 === 'l' ? 'r' : 'l') : s0;
+        const downstream = (rank.get(o.block) ?? 0) > (rank.get(b.id) ?? 0);
+        if ((s === 'l' && downstream) || (s === 'r' && !downstream)) wrong++;
+        else right++;
+      }
+    }
+    if (wrong > right) {
+      b.flip = !b.flip || undefined;
+      if (!b.flip) delete b.flip;
+      flipped.push(b.id);
+    }
+  }
+  return flipped;
+}
+
+/**
  * Place blocks. With `all`, every block is placed; otherwise only blocks without x/y,
  * shifted so already-placed blocks keep their positions.
  */
@@ -44,6 +84,7 @@ export async function layoutDoc(doc: LineupDoc, all = false): Promise<void> {
   const targets = doc.blocks.filter((b) => all || b.x === undefined || b.y === undefined);
   if (!targets.length) return;
   const placed = doc.blocks.filter((b) => !targets.includes(b));
+  orientBidirectional(doc, new Set(targets.map((b) => b.id)));
   const saved = new Map(doc.blocks.map((b) => [b.id, { x: b.x, y: b.y }]));
   // Expand with everything at the origin to get local port positions.
   for (const b of doc.blocks) {
@@ -87,7 +128,10 @@ export async function layoutDoc(doc: LineupDoc, all = false): Promise<void> {
       'elk.layered.spacing.nodeNodeBetweenLayers': String(4 * G),
       'elk.spacing.nodeNode': String(4 * G),
       'elk.layered.spacing.edgeNodeBetweenLayers': String(2 * G),
-      'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+      // Brandes–Köpf with balanced alignment centres parallel branches (filter banks between
+      // switches) on the blocks that fan out and back in, while keeping chains straight.
+      'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+      'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED',
       'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
       'elk.layered.crossingMinimization.forceNodeModelOrder': 'false',
     },

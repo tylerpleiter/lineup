@@ -41,5 +41,6 @@
     "iip3": null
   },
   "label": "",
-  "description": "Mixer; label it IRM for an image-reject mixer."
+  "description": "Mixer; label it IRM for an image-reject mixer.",
+  "dsp": true
 }

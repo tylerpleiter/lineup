@@ -1,17 +1,20 @@
 // Editor state: the document, selection, view, and undo/redo history.
 // Edits work on a plain copy of the document and swap it in, so model code never sees proxies.
 
-import { expand, formatRef, parseRef, type Ref } from '../model/expand';
+import { expand, formatRef, isCustomBlock, parseRef, type PortInst, type Ref } from '../model/expand';
 import { emptyDoc, newBlockId, removeBlocks, renameBlock, serialize } from '../model/doc';
 import { normalizeConnections, propagateIQ, relink, unlink } from '../model/iq';
 import { route } from '../render/route';
-import { symbolFor, SYMBOLS } from '../model/symbols';
+import { blockDomain, nativeDomain, symbolFor, SYMBOLS } from '../model/symbols';
 import { layoutDoc } from '../layout/elk';
 import { parseDoc } from '../io/schema';
 import { saveAutosave } from '../io/autosave';
-import { G, type Block, type LineupDoc, type Rail } from '../model/types';
+import { G, railOf, type Block, type BlockDomain, type LineupDoc, type Rail, type Signal } from '../model/types';
 import { inlinePorts, spliceBlock, wiresUnder } from '../model/splice';
 import { ALIASES, applyAlias, resolveAliases } from '../model/aliases';
+import { collapseToSheet, flatten, sheetUses } from '../model/sheets';
+import { cascade as runCascade, type Cascade } from '../model/cascade';
+import { fmtHz, frequencyPlan, type FreqPlan } from '../model/freqplan';
 
 export interface Selection {
   blocks: string[];
@@ -45,7 +48,90 @@ class Editor {
   /** Last pointer position over the canvas, world grid units. */
   pointer = { x: 0, y: 0, sx: 0, sy: 0 };
 
-  expanded = $derived(expand(this.doc));
+  /** Open sheets, outermost first; empty = the top-level diagram. */
+  sheetPath = $state<string[]>([]);
+  /** The diagram on screen: the top level, or the open sheet (edits write into `doc.sheets`). */
+  /** Sheet block ids along the open path (instance prefix in the flattened diagram). */
+  blockPath = $state<string[]>([]);
+  cur = $derived(makeView(this.doc, this.sheetPath.at(-1)));
+  expanded = $derived(expand(this.cur));
+  /** Flattened id prefix of blocks on the open page ("fe/" inside sheet block fe). */
+  prefix = $derived(this.blockPath.map((b) => `${b}/`).join(''));
+
+  // ---- Analysis (always on the whole, flattened file) ----------------------
+  analysisOpen = $state(false);
+  flat = $derived(flatten(this.doc));
+  flatEx = $derived(expand(this.flat.doc));
+  private wantAnalysis = $derived(this.analysisOpen || !!this.doc.analysis?.showLevels || !!this.doc.analysis?.showFreq);
+  cascade: Cascade | null = $derived(this.wantAnalysis ? runCascade(this.flat.doc, this.doc.analysis?.path ?? [], this.flatEx) : null);
+  freqPlan: FreqPlan | null = $derived(this.wantAnalysis ? frequencyPlan(this.flat.doc, this.flatEx, this.doc.analysis ?? {}) : null);
+  /** Wire id on the open page → level / frequency text drawn beside it. */
+  wireNotes = $derived(this.computeWireNotes());
+
+  private computeWireNotes(): Map<string, string> {
+    const out = new Map<string, string>();
+    const a = this.doc.analysis;
+    if (!a?.showLevels && !a?.showFreq) return out;
+    const levels = new Map<string, number>();
+    const c = this.cascade;
+    if (a.showLevels && c && !c.error && a.pin !== undefined) {
+      c.stages.forEach((st, i) => {
+        const next = c.stages[i + 1];
+        if (next?.wire) levels.set(next.wire.from.key, st.cum.pout!);
+        else for (const p of this.flatEx.byId.get(st.inst)?.ports ?? []) if (p.dir !== 'in' && !['lo', 'clk', 'ctrl'].includes(p.domain)) levels.set(p.key, st.cum.pout!);
+      });
+    }
+    const fp = a.showFreq ? this.freqPlan : null;
+    const seen = new Set<string>();
+    for (const w of this.expanded.wires) {
+      const key = this.prefix + w.from.key;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const flatKey = this.flat.drivers.get(key) ?? key;
+      const bits: string[] = [];
+      const f = fp?.byPort.get(flatKey);
+      if (f !== undefined) bits.push(fmtHz(f));
+      // Power levels only mean something on analog wires.
+      const l = w.domain === 'signal' ? levels.get(flatKey) : undefined;
+      if (l !== undefined) bits.push(`${Number(l.toFixed(1))} dBm`.replace('-', '−'));
+      if (bits.length) out.set(w.id, bits.join('\n'));
+    }
+    return out;
+  }
+
+  setAnalysis(patch: Partial<NonNullable<LineupDoc['analysis']>>) {
+    this.edit(
+      (d) => {
+        const a = { ...(d.analysis ?? {}), ...patch };
+        for (const k of Object.keys(a) as (keyof typeof a)[]) if (a[k] === undefined || (Array.isArray(a[k]) && !(a[k] as unknown[]).length) || a[k] === false) delete a[k];
+        if (Object.keys(a).length) d.analysis = a;
+        else delete d.analysis;
+      },
+      { root: true },
+    );
+  }
+
+  /** Open the page holding a flattened instance ("fe/lna:i") and select its block. */
+  reveal(flatId: string) {
+    const parts = flatId.split('/');
+    const blockId = parts.pop()!.split(':')[0];
+    const names: string[] = [];
+    let blocks = this.doc.blocks;
+    for (const sb of parts) {
+      const b = blocks.find((x) => x.id === sb);
+      const sh = b?.sheet ? this.doc.sheets?.[b.sheet] : undefined;
+      if (!sh) return;
+      names.push(b!.sheet!);
+      blocks = sh.blocks;
+    }
+    if (names.join('/') !== this.sheetPath.join('/') || parts.join('/') !== this.blockPath.join('/')) this.goTo(names, parts);
+    this.sel = { blocks: [blockId], conn: null };
+  }
+
+  /** Analyse through the selected blocks (on the open page). */
+  pathFromSelection() {
+    this.setAnalysis({ path: this.sel.blocks.map((b) => this.prefix + b) });
+  }
   routed = $derived(route(this.expanded));
 
   private past: string[] = [];
@@ -55,8 +141,14 @@ class Editor {
   /** Snapshot taken at the start of a direct (drag) edit. */
   private pending: string | null = null;
 
+  /** The whole file (all sheets), as plain data. */
   snapshot(): LineupDoc {
     return $state.snapshot(this.doc) as LineupDoc;
+  }
+
+  /** The diagram on screen as plain data (with the file's `sheets`, for sheet blocks' ports). */
+  viewSnapshot(): LineupDoc {
+    return JSON.parse(JSON.stringify(makeView(this.snapshot(), this.sheetPath.at(-1))));
   }
 
   private record(before: string) {
@@ -69,10 +161,10 @@ class Editor {
   }
 
   /** Apply an edit to a copy of the document and record it for undo. */
-  edit(fn: (d: LineupDoc) => void | boolean): boolean {
+  edit(fn: (d: LineupDoc) => void | boolean, opts: { root?: boolean } = {}): boolean {
     const before = JSON.stringify(this.snapshot());
     const d = JSON.parse(before) as LineupDoc;
-    if (fn(d) === false) return false;
+    if (fn(opts.root ? d : makeView(d, this.sheetPath.at(-1))) === false) return false;
     const after = JSON.stringify(d);
     if (after === before) return false;
     this.doc = d;
@@ -109,10 +201,12 @@ class Editor {
   }
 
   private afterHistory() {
+    while (this.sheetPath.length && !this.doc.sheets?.[this.sheetPath.at(-1)!]) this.sheetPath = this.sheetPath.slice(0, -1);
+    this.blockPath = this.blockPath.slice(0, this.sheetPath.length);
     this.canUndo = this.past.length > 0;
     this.canRedo = this.future.length > 0;
-    const ids = new Set(this.doc.blocks.map((b) => b.id));
-    this.sel = { blocks: this.sel.blocks.filter((b) => ids.has(b)), conn: this.sel.conn !== null && this.sel.conn < this.doc.connections.length ? this.sel.conn : null };
+    const ids = new Set(this.cur.blocks.map((b) => b.id));
+    this.sel = { blocks: this.sel.blocks.filter((b) => ids.has(b)), conn: this.sel.conn !== null && this.sel.conn < this.cur.connections.length ? this.sel.conn : null };
     this.scheduleSave();
   }
 
@@ -137,11 +231,17 @@ class Editor {
       return false;
     }
     const d = JSON.parse(JSON.stringify(r.doc)) as LineupDoc;
-    propagateIQ(d);
-    normalizeConnections(d);
-    if (d.blocks.some((b) => b.x === undefined || b.y === undefined)) await layoutDoc(d);
+    // Every page gets the same treatment: I/Q pairs, connection tidy-up, and layout where positions are missing.
+    for (const page of [undefined, ...Object.keys(d.sheets ?? {})]) {
+      const v = makeView(d, page);
+      propagateIQ(v);
+      normalizeConnections(v);
+      if (v.blocks.some((b) => b.x === undefined || b.y === undefined)) await layoutDoc(v);
+    }
     const before = JSON.stringify(this.snapshot());
     this.doc = d;
+    this.sheetPath = [];
+    this.blockPath = [];
     if (opts.record !== false) this.record(before);
     this.sel = { blocks: [], conn: null };
     this.loadWarnings = r.warnings;
@@ -154,7 +254,7 @@ class Editor {
   }
 
   async autoLayout() {
-    const d = JSON.parse(JSON.stringify(this.snapshot())) as LineupDoc;
+    const d = JSON.parse(JSON.stringify(this.viewSnapshot())) as LineupDoc;
     const sel = new Set(this.sel.blocks);
     if (sel.size > 1) {
       // Tidy just the selection, keeping the rest pinned.
@@ -182,8 +282,16 @@ class Editor {
       id = newBlockId(d, type);
       const b: Block = { id, type };
       applyAlias(b);
+      this.applyStyle(b);
       const def = SYMBOLS[b.type];
       if (def?.show?.length) b.show = [...def.show];
+      if (b.type === 'sheet') {
+        // A fresh sheet starts with one input and one output.
+        const name = this.freshSheetName(d);
+        d.sheets = { ...(d.sheets ?? {}), [name]: { title: name, blocks: [{ id: 'in', type: 'port_in', x: 2, y: 4 }, { id: 'out', type: 'port_out', x: 30, y: 4 }], connections: [{ from: 'in.out', to: 'out.in' }] } };
+        b.sheet = name;
+        b.label = name;
+      }
       const size = symbolFor(b).def.size;
       if (anchor) {
         // Clicking the palette with one block selected continues the chain to its right.
@@ -215,6 +323,106 @@ class Editor {
     });
     this.sel = { blocks: [id], conn: null };
     return id;
+  }
+
+  // ---- Sheets ----------------------------------------------------------------
+
+  private freshSheetName(d: LineupDoc, base = 'sheet'): string {
+    const taken = new Set(Object.keys(d.sheets ?? {}));
+    if (!taken.has(base)) return base;
+    for (let n = 2; ; n++) if (!taken.has(`${base}${n}`)) return `${base}${n}`;
+  }
+
+  /** Open the sheet behind a sheet block on the current page. */
+  openSheet(blockId: string): boolean {
+    const b = this.cur.blocks.find((x) => x.id === blockId);
+    if (b?.type !== 'sheet' || !b.sheet || !this.doc.sheets?.[b.sheet]) return false;
+    if (this.sheetPath.includes(b.sheet)) {
+      this.notify(`"${b.sheet}" contains itself`, 'error');
+      return false;
+    }
+    this.goTo([...this.sheetPath, b.sheet], [...this.blockPath, b.id]);
+    return true;
+  }
+
+  /** Show a page: [] is the top level. `blocks` are the sheet blocks opened to get there. */
+  goTo(path: string[], blocks: string[] = this.blockPath.slice(0, path.length)) {
+    this.endDirect();
+    const n = path.findIndex((x) => !this.doc.sheets?.[x]);
+    const k = n < 0 ? path.length : n;
+    this.sheetPath = path.slice(0, k);
+    this.blockPath = blocks.slice(0, k);
+    this.sel = { blocks: [], conn: null };
+    requestAnimationFrame(() => this.fit());
+  }
+
+  /** Move the selected blocks into a new sheet and put a sheet block in their place. */
+  makeSheet(): boolean {
+    const ids = new Set(this.sel.blocks);
+    if (!ids.size) return false;
+    let id = '';
+    const ok = this.edit((d) => {
+      if (d.blocks.some((b) => ids.has(b.id) && (b.type === 'port_in' || b.type === 'port_out') && this.sheetPath.length)) return false;
+      const name = this.freshSheetName(d);
+      id = newBlockId(d, 'sheet');
+      collapseToSheet(d, ids, name, id);
+      for (const c of d.connections) delete c.via;
+    });
+    if (!ok) {
+      this.notify("Sheet ports can't move into a new sheet", 'warning');
+      return false;
+    }
+    this.sel = { blocks: [id], conn: null };
+    this.notify('Made a sheet; double-click it to open');
+    return true;
+  }
+
+  /** Point a sheet block at another sheet. */
+  setSheet(blockId: string, name: string) {
+    if (name !== this.sheetPath.at(-1) && this.sheetPath.at(-1) && sheetUses(this.doc, name).has(this.sheetPath.at(-1)!)) {
+      this.notify(`"${name}" already contains this sheet`, 'error');
+      return;
+    }
+    this.updateBlock(blockId, (b) => {
+      b.sheet = name;
+    });
+  }
+
+  /** Rename a sheet everywhere it is used. */
+  renameSheet(from: string, to: string): boolean {
+    if (!/^[A-Za-z_][\w-]*$/.test(to) || this.doc.sheets?.[to] || !this.doc.sheets?.[from]) return false;
+    this.edit(
+      (d) => {
+        const next: NonNullable<LineupDoc['sheets']> = {};
+        for (const [k, v] of Object.entries(d.sheets!)) next[k === from ? to : k] = v;
+        d.sheets = next;
+        for (const bs of [d.blocks, ...Object.values(next).map((x) => x.blocks)])
+          for (const b of bs) if (b.type === 'sheet' && b.sheet === from) b.sheet = to;
+      },
+      { root: true },
+    );
+    this.sheetPath = this.sheetPath.map((n) => (n === from ? to : n));
+    return true;
+  }
+
+  /** Sheets no block refers to. */
+  unusedSheets(): string[] {
+    const used = new Set<string>();
+    const scan = (bs: Block[]) => bs.forEach((b) => b.type === 'sheet' && b.sheet && used.add(b.sheet));
+    scan(this.doc.blocks);
+    for (const sh of Object.values(this.doc.sheets ?? {})) scan(sh.blocks);
+    return Object.keys(this.doc.sheets ?? {}).filter((n) => !used.has(n));
+  }
+
+  deleteSheet(name: string) {
+    this.edit(
+      (d) => {
+        if (!d.sheets?.[name]) return false;
+        delete d.sheets[name];
+        if (!Object.keys(d.sheets).length) delete d.sheets;
+      },
+      { root: true },
+    );
   }
 
   updateBlock(id: string, fn: (b: Block) => void) {
@@ -289,7 +497,7 @@ class Editor {
   fragment(): Fragment | null {
     const ids = new Set(this.sel.blocks);
     if (!ids.size) return null;
-    const d = this.snapshot();
+    const d = this.viewSnapshot();
     return {
       lineup: d.lineup,
       fragment: true,
@@ -438,11 +646,69 @@ class Editor {
     });
   }
 
-  flipSelection() {
+  flipSelection(vertical = false) {
     const ids = new Set(this.sel.blocks);
     this.edit((d) => {
-      for (const b of d.blocks) if (ids.has(b.id)) b.flip = !b.flip;
+      for (const b of d.blocks) {
+        if (!ids.has(b.id)) continue;
+        if (vertical) b.flipV = !b.flipV || undefined;
+        else b.flip = !b.flip || undefined;
+        if (!b.flip) delete b.flip;
+        if (!b.flipV) delete b.flipV;
+      }
     });
+  }
+
+  // ---- Remembered style ----------------------------------------------------
+
+  /** Signal / I/Q / domain of the last block touched; new blocks start with the same settings. */
+  lastStyle: { signal?: Signal; iq?: boolean; domain?: BlockDomain } = {};
+
+  rememberStyle(id: string) {
+    const b = this.cur.blocks.find((x) => x.id === id);
+    if (!b) return;
+    const def = symbolFor(b).def;
+    this.lastStyle = { signal: b.signal ?? 'se', iq: !!b.iq, domain: def.dsp ? blockDomain(b, def) : this.lastStyle.domain };
+  }
+
+  /** Change a block's signal (se/diff), I/Q pairing or domain, and remember it for new blocks. */
+  setBlockStyle(id: string, patch: { signal?: Signal; iq?: boolean; domain?: BlockDomain }) {
+    this.edit((d) => {
+      const b = d.blocks.find((x) => x.id === id);
+      if (!b) return false;
+      const def = symbolFor(b).def;
+      if (patch.signal === 'se') delete b.signal;
+      else if (patch.signal) b.signal = patch.signal;
+      if (patch.iq === true) b.iq = true;
+      if (patch.iq === false) {
+        delete b.iq;
+        delete b.iqOverride;
+      }
+      if (patch.domain) {
+        if (patch.domain === nativeDomain(def)) delete b.domain;
+        else b.domain = patch.domain;
+        // A complex line is already I+jQ: it isn't also drawn as a pair or as a diff pair.
+        if (patch.domain === 'complex') {
+          delete b.iq;
+          delete b.iqOverride;
+          delete b.signal;
+        }
+      }
+      normalizeConnections(d);
+    });
+    this.rememberStyle(id);
+  }
+
+  /** Give a new block the remembered style where it applies. */
+  private applyStyle(b: Block) {
+    const def = symbolFor(b).def;
+    const st = this.lastStyle;
+    if (def.dsp && st.domain && b.domain === undefined && st.domain !== nativeDomain(def)) b.domain = st.domain;
+    const dom = blockDomain(b, def);
+    const sigPorts = def.ports.filter((p) => !p.fixed && !p.fixedDomain && ['signal', 'digital', 'complex'].includes(p.domain ?? 'signal'));
+    if (st.signal === 'diff' && dom === 'signal' && sigPorts.length) b.signal = 'diff';
+    // Pairs only for plain inline blocks: not split/merge blocks or custom boxes.
+    if (st.iq && dom !== 'complex' && sigPorts.length && !def.labelInside && !def.ports.some((p) => railOf(p))) b.iq = true;
   }
 
   setIQ(id: string, on: boolean) {
@@ -477,7 +743,12 @@ class Editor {
   // ---- Connections ---------------------------------------------------------
 
   /** Connect two drawn ports (instance-level keys like "lpf:i.out"). Returns an error message or null. */
-  connect(fromKey: string, toKey: string): string | null {
+  /**
+   * Connect two drawn ports. Dragging from one rail of an I/Q pair to a single custom block or
+   * sheet (or back) connects the whole pair, packed into that one port, unless `oneRail` is set
+   * (Alt-drag), which keeps just the rail that was dragged.
+   */
+  connect(fromKey: string, toKey: string, opts: { oneRail?: boolean } = {}): string | null {
     const ex = this.expanded;
     const pa = ex.instances.flatMap((i) => i.ports).find((p) => p.key === fromKey);
     const pb = ex.instances.flatMap((i) => i.ports).find((p) => p.key === toKey);
@@ -491,8 +762,27 @@ class Editor {
       a = { ...a, rail: undefined };
       b = { ...b, rail: undefined };
     }
+    // A single custom block or sheet packs / unpacks a pair: connect both rails through one port.
+    const [portA, portB] = pa.block === a.block ? [pa, pb] : [pb, pa];
+    const packs = (side: PortInst) => !side.rail && isCustomBlock(ex.byId.get(side.inst)!.def);
+    let packed = false;
+    if (!opts.oneRail && a.rail && !b.rail && packs(portB)) {
+      a = { ...a, rail: undefined };
+      packed = true;
+    } else if (!opts.oneRail && b.rail && !a.rail && packs(portA)) {
+      b = { ...b, rail: undefined };
+      packed = true;
+    }
     const conn = { from: formatRef(a), to: formatRef(b) };
-    const d = JSON.parse(JSON.stringify(this.snapshot())) as LineupDoc;
+    const d = JSON.parse(JSON.stringify(this.viewSnapshot())) as LineupDoc;
+    if (packed) {
+      // Replace any single-rail links between the same two ports (e.g. an earlier I-only drag).
+      const same = (x: string, r: Ref) => {
+        const q = parseRef(x);
+        return !!q && q.block === r.block && q.port === r.port;
+      };
+      d.connections = d.connections.filter((c) => !((same(c.from, a) && same(c.to, b)) || (same(c.from, b) && same(c.to, a))));
+    }
     if (d.connections.some((c) => c.from === conn.from && c.to === conn.to)) return 'Already connected';
     d.connections.push(conn);
     const changed = propagateIQ(d);
@@ -509,12 +799,13 @@ class Editor {
     const warn = expand(d).issues.find((i) => i.level === 'warning' && i.msg.startsWith(`${conn.from} → ${conn.to}`));
     if (warn) this.notify(warn.msg, 'warning');
     else if (changed.length) this.notify(`I/Q path: ${changed.join(', ')} now drawn as I and Q pairs`);
+    else if (packed) this.notify(`Connected both I and Q rails (Alt-drag to connect one rail only)`);
     return null;
   }
 
   /** Set waypoints live during a segment drag (call inside beginDirect/endDirect). */
   setVia(i: number, via: [number, number][] | undefined) {
-    const c = this.doc.connections[i];
+    const c = this.cur.connections[i];
     if (!c) return;
     if (via && via.length) c.via = via;
     else delete c.via;
@@ -522,7 +813,7 @@ class Editor {
 
   /** If an unconnected inline block sits on a wire, splice it in. Returns true when it did. */
   trySplice(id: string): boolean {
-    const d0 = this.snapshot();
+    const d0 = this.viewSnapshot();
     if (!inlinePorts(d0, id)) return false;
     const insts = this.expanded.byBlock.get(id);
     if (!insts) return false;
@@ -595,7 +886,7 @@ class Editor {
     this.sel = { blocks: [anchorId], conn: null };
     const id = this.addBlock(type);
     if (!out) return;
-    const d = this.snapshot();
+    const d = this.viewSnapshot();
     const nb = d.blocks.find((b) => b.id === id)!;
     const io = inlinePorts(d, id);
     const inName = io?.inp.name ?? symbolFor(nb).def.ports.find((p) => p.dir !== 'out')?.name;
@@ -661,7 +952,7 @@ class Editor {
           y1 = Math.max(y1, p[1]);
         }
     // Groups add padding and a label row.
-    if (this.doc.groups?.length) {
+    if (this.cur.groups?.length) {
       x0 -= 2.5;
       y0 -= 2.5;
       x1 += 2.5;
@@ -715,6 +1006,38 @@ function alignNewPairs(d: LineupDoc, ids: string[]) {
     b.y = Math.round(w.from.p[1] - local[1]);
     if (inst.x < w.from.p[0] + 4) b.x = Math.round(w.from.p[0] + 4 - local[0]);
   }
+}
+
+/**
+ * A LineupDoc-shaped window onto one sheet of a document: blocks, connections, groups and
+ * notes read and write the sheet; title the sheet's title; theme, style, analysis and sheets
+ * stay the file's. With no sheet, the document itself.
+ */
+export function makeView(root: LineupDoc, name: string | undefined): LineupDoc {
+  const sh = name ? root.sheets?.[name] : undefined;
+  if (!sh) return root;
+  return {
+    get lineup() { return root.lineup; },
+    set lineup(v) { root.lineup = v; },
+    get title() { return sh.title; },
+    set title(v) { sh.title = v; },
+    get theme() { return root.theme; },
+    set theme(v) { root.theme = v; },
+    get style() { return root.style; },
+    set style(v) { root.style = v; },
+    get analysis() { return root.analysis; },
+    set analysis(v) { root.analysis = v; },
+    get blocks() { return sh.blocks; },
+    set blocks(v) { sh.blocks = v; },
+    get connections() { return sh.connections; },
+    set connections(v) { sh.connections = v; },
+    get groups() { return sh.groups; },
+    set groups(v) { sh.groups = v; },
+    get notes() { return sh.notes; },
+    set notes(v) { sh.notes = v; },
+    get sheets() { return root.sheets; },
+    set sheets(v) { root.sheets = v; },
+  };
 }
 
 export const editor = new Editor();

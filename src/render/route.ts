@@ -24,7 +24,7 @@ const DX = [1, 0, -1, 0];
 const DY = [0, 1, 0, -1];
 const BEND = 3;
 const OVERLAP = 40;
-const CROSS = 2;
+const CROSS = 10;
 const NEAR = 6;
 const LABEL = 5;
 const MARGIN = 10;
@@ -158,6 +158,64 @@ export function wireVia(w: Wire): Pt[] | undefined {
   if (!w.via?.length) return undefined;
   const shift = w.rail === 'q' && w.from.rail === 'q' && w.to.rail === 'q' ? RAIL_PITCH : 0;
   return w.via.map((v) => [v[0], v[1] + shift] as Pt);
+}
+
+/** A Z-shaped route: horizontal, vertical, horizontal. Returns the vertical's column, or null. */
+function zColumn(p: Pt[]): number | null {
+  if (p.length !== 4) return null;
+  if (p[0][1] !== p[1][1] || p[1][0] !== p[2][0] || p[2][1] !== p[3][1] || p[0][1] === p[3][1]) return null;
+  return p[1][0];
+}
+
+/** Does a vertical segment at x (from y0 to y1) cross a horizontal one at y (x0 to x1), strictly inside both? */
+function crosses(x: number, y0: number, y1: number, y: number, x0: number, x1: number): boolean {
+  return x > Math.min(x0, x1) && x < Math.max(x0, x1) && y > Math.min(y0, y1) && y < Math.max(y0, y1);
+}
+
+function zCrossings(a: Pt[], b: Pt[]): number {
+  let n = 0;
+  if (crosses(a[1][0], a[1][1], a[2][1], b[0][1], b[0][0], b[1][0])) n++;
+  if (crosses(a[1][0], a[1][1], a[2][1], b[3][1], b[2][0], b[3][0])) n++;
+  if (crosses(b[1][0], b[1][1], b[2][1], a[0][1], a[0][0], a[1][0])) n++;
+  if (crosses(b[1][0], b[1][1], b[2][1], a[3][1], a[2][0], a[3][0])) n++;
+  return n;
+}
+
+/**
+ * Fan-outs and fan-ins (a switch feeding a filter bank, say) route each wire on its own,
+ * so two Z-shaped wires can cross where swapping their vertical columns would not. Swap them
+ * when that removes the crossing and the new columns are clear.
+ */
+export function untangle(routes: Routed[], free: (x: number, y: number) => boolean): void {
+  const withCol = (p: Pt[], x: number): Pt[] => [p[0], [x, p[0][1]], [x, p[3][1]], p[3]];
+  const columnFree = (x: number, y0: number, y1: number) => {
+    for (let y = Math.min(y0, y1) + 1; y < Math.max(y0, y1); y++) if (!free(x, y)) return false;
+    return true;
+  };
+  const fits = (p: Pt[], x: number) => x >= Math.min(p[0][0], p[3][0]) + 1 && x <= Math.max(p[0][0], p[3][0]) - 1 && columnFree(x, p[0][1], p[3][1]);
+  for (let pass = 0; pass < 4; pass++) {
+    let changed = false;
+    for (let i = 0; i < routes.length; i++) {
+      for (let j = i + 1; j < routes.length; j++) {
+        const A = routes[i];
+        const B = routes[j];
+        const xa = zColumn(A.path);
+        const xb = zColumn(B.path);
+        if (xa === null || xb === null || xa === xb || A.wire.net === B.wire.net) continue;
+        const before = zCrossings(A.path, B.path);
+        if (!before || !fits(A.path, xb) || !fits(B.path, xa)) continue;
+        const a2 = withCol(A.path, xb);
+        const b2 = withCol(B.path, xa);
+        if (zCrossings(a2, b2) >= before) continue;
+        A.path = a2;
+        A.lines = [a2];
+        B.path = b2;
+        B.lines = [b2];
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
 }
 
 export function route(ex: Expanded): RouteResult {
@@ -361,6 +419,7 @@ export function route(ex: Expanded): RouteResult {
     } else lines = [path];
     byIndex[i] = { wire: w, path, lines };
   }
+  untangle(byIndex.filter((r) => r.wire.signal === 'se' && !r.wire.via?.length), (x, y) => x >= minX && x <= maxX && y >= minY && y <= maxY && !blocked[at(x, y)]);
   routes.push(...byIndex);
 
   // Junction dots where a net's wires branch (3+ directions at a point).

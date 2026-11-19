@@ -30,8 +30,10 @@ const dir = path.join(root, 'symbols');
 const symbols = {};
 for (const f of fs.readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'aliases.json').sort()) {
   const s = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
-  const port = (p) => ({ name: p.name, dir: p.dir, domain: p.domain ?? 'signal', signal: p.signal ?? 'se', ...(p.fixed ? { fixed: true } : {}), ...(p.rail ? { rail: p.rail } : {}), ...(p.optional ? { optional: true } : {}) });
+  const port = (p) => ({ name: p.name, dir: p.dir, domain: p.domain ?? 'signal', signal: p.signal ?? 'se', ...(p.fixed ? { fixed: true } : {}), ...(p.fixedDomain ? { fixedDomain: true } : {}), ...(p.rail ? { rail: p.rail } : {}), ...(p.optional ? { optional: true } : {}) });
   symbols[s.id] = {
+    ...(s.dsp ? { dsp: true } : {}),
+    ...(s.generator ? { generator: s.generator } : {}),
     ports: s.ports.map(port),
     params: Object.keys(s.params ?? {}),
     variants: Object.fromEntries(Object.entries(s.variants ?? {}).map(([k, v]) => [k, (v.ports ?? []).map(port)])),

@@ -1,5 +1,5 @@
 {
-  "$comment": "Other names for symbols. A block whose type is an alias loads as the target symbol with these defaults (only where the block doesn't set them). `ports` renames connection endpoints from the alias's port names to the target's.",
+  "$comment": "Other names for symbols. A block whose type is an alias loads as the target symbol with these defaults (only where the block doesn't set them): label, variant, flip, domain, params. `ports` renames connection endpoints from the alias's port names to the target's.",
   "aliases": {
     "lna": {
       "type": "amp",
@@ -74,34 +74,80 @@
     },
     "fir": {
       "type": "custom",
-      "label": "FIR"
+      "label": "FIR",
+      "domain": "digital"
     },
     "iir": {
       "type": "custom",
-      "label": "IIR"
+      "label": "IIR",
+      "domain": "digital"
     },
     "fft": {
       "type": "custom",
-      "label": "FFT"
+      "label": "FFT",
+      "domain": "digital"
     },
     "cordic": {
       "type": "custom",
-      "label": "CORDIC"
+      "label": "CORDIC",
+      "domain": "digital"
     },
     "agc": {
       "type": "custom",
-      "label": "AGC"
+      "label": "AGC",
+      "domain": "digital"
     },
     "nco": {
       "type": "custom",
       "label": "NCO",
+      "domain": "complex",
       "customPorts": [
         {
           "name": "out",
           "side": "r",
-          "dir": "out"
+          "dir": "out",
+          "domain": "complex"
         }
       ]
+    },
+    "spdt": {
+      "type": "switch",
+      "params": {
+        "throws": 2
+      }
+    },
+    "sp3t": {
+      "type": "switch",
+      "params": {
+        "throws": 3
+      }
+    },
+    "sp4t": {
+      "type": "switch",
+      "params": {
+        "throws": 4
+      }
+    },
+    "spnt": {
+      "type": "switch",
+      "params": {
+        "throws": 4
+      }
+    },
+    "clipper": {
+      "type": "limiter",
+      "label": "Clipper"
+    },
+    "preemph": {
+      "type": "filter",
+      "variant": "preemph"
+    },
+    "deemph": {
+      "type": "filter",
+      "variant": "deemph"
+    },
+    "junction": {
+      "type": "node"
     }
   }
 }

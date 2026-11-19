@@ -21,7 +21,8 @@ SCHEMA_PATH = os.path.join(HERE, "..", "references", "lineup.schema.json")
 ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 REF_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)(?::([iq]))?\.([A-Za-z0-9_-]+)$")
 AUX = {"lo", "clk", "ctrl"}
-SIGNAL_PATH = {"signal", "digital"}
+SIGNAL_PATH = {"signal", "digital", "complex"}
+KIND = {"signal": "analog", "digital": "real digital", "complex": "complex"}
 LEGACY = {"rf", "if", "bb"}
 RESERVED_NUMERIC = {"gain", "nf", "oip3", "iip3", "p1db", "il", "freq", "fc", "bw", "bits", "fs", "ratio"}
 DEFAULT_CUSTOM_PORTS = [{"name": "in", "side": "l", "dir": "in"}, {"name": "out", "side": "r", "dir": "out"}]
@@ -38,15 +39,35 @@ def rail_of(port):
 
 
 class Checker:
-    def __init__(self, doc):
+    """Checks one page: the top-level diagram, or (with `root` and `where`) one sheet of it."""
+
+    def __init__(self, doc, root=None, where=""):
         self.doc = doc
+        self.root = root if root is not None else doc
+        self.where = where
         self.errors, self.warnings = [], []
 
     def err(self, msg):
-        self.errors.append(msg)
+        self.errors.append(self.where + msg)
 
     def warn(self, msg):
-        self.warnings.append(msg)
+        self.warnings.append(self.where + msg)
+
+    def sheets(self):
+        sh = self.root.get("sheets") if isinstance(self.root, dict) else None
+        return sh if isinstance(sh, dict) else {}
+
+    def sheet_ports(self, name):
+        """A sheet block's ports: one per port_in (left, input) / port_out (right, output) inside."""
+        quiet = Checker({}, self.root)
+        ports = []
+        for pb in self.sheets()[name].get("blocks", []):
+            if not isinstance(pb, dict) or pb.get("type") not in ("port_in", "port_out"):
+                continue
+            inner = quiet.block_ports(dict(pb)) or {}
+            p = inner.get("out" if pb["type"] == "port_in" else "in", {"domain": "signal", "signal": "se"})
+            ports.append({"name": pb["id"], "dir": "in" if pb["type"] == "port_in" else "out", "domain": p["domain"], "signal": p["signal"]})
+        return ports
 
     # -- blocks ---------------------------------------------------------------
     def resolve_blocks(self):
@@ -69,6 +90,10 @@ class Checker:
                 b.setdefault("label", a.get("label"))
                 if a.get("variant"):
                     b.setdefault("variant", a["variant"])
+                if a.get("domain"):
+                    b.setdefault("domain", a["domain"])
+                if a.get("params"):
+                    b["params"] = {**a["params"], **(b.get("params") or {})}
                 if a.get("customPorts") and "ports" not in b:
                     b["ports"] = a["customPorts"]
                 renames[bid] = a.get("ports", {})
@@ -78,7 +103,24 @@ class Checker:
 
     def block_ports(self, b):
         t = b["type"]
-        if t == "custom" or t not in SYMBOLS:
+        dsp = bool(SYMBOLS.get(t, {}).get("dsp"))
+        if t == "sheet":
+            name = b.get("sheet")
+            if not name or name not in self.sheets():
+                self.err(f'{b["id"]}: sheet "{name or ""}" not found (add it under "sheets")')
+                return None
+            ports = self.sheet_ports(name)
+            names = [p["name"] for p in ports]
+            return {p["name"]: p for p in ports} if len(set(names)) == len(names) else None
+        if t in SYMBOLS and SYMBOLS[t].get("generator") == "switch":
+            try:
+                n = max(2, min(8, round(float((b.get("params") or {}).get("throws", 2)))))
+            except (TypeError, ValueError):
+                n = 2
+            ports = [{"name": "c", "dir": "bi", "domain": "signal", "signal": "se"}]
+            ports += [{"name": f"t{k + 1}", "dir": "bi", "domain": "signal", "signal": "se"} for k in range(n)]
+            ports += [{"name": "ctrl", "dir": "in", "domain": "ctrl", "signal": "se", "optional": True}]
+        elif t == "custom" or t not in SYMBOLS:
             if t not in SYMBOLS:
                 self.warn(f'{b["id"]}: unknown type "{t}" (Lineup draws it as a labelled box; see SYMBOLS.md)')
                 if "ports" not in b:
@@ -96,9 +138,20 @@ class Checker:
                     self.err(f'{b["id"]}: {t} has no variant "{v}" (has: {", ".join(sym["variants"]) or "none"})')
                 else:
                     ports += [dict(p) for p in sym["variants"][v]]
+        if t not in SYMBOLS:
+            dsp = False
+        dom = b.get("domain")
+        if dom and not dsp:
+            self.warn(f'{b["id"]}: {t} has no domain setting (only DSP-capable blocks do; see SYMBOLS.md)')
         sig = b.get("signal")
         for p in ports:
-            if sig and not p.get("fixed") and p["domain"] == "signal":
+            # Block-level domain on DSP-capable blocks (signal ports, and LO ports when digital/complex).
+            if dsp and dom and not p.get("fixedDomain"):
+                if p["domain"] in ("signal", "digital", "complex") or (p["domain"] == "lo" and dom != "signal"):
+                    p["domain"] = dom
+            if p["domain"] == "complex":
+                p["signal"] = "se"
+            elif sig and not p.get("fixed") and p["domain"] == "signal":
                 p["signal"] = sig
         names = [p["name"] for p in ports]
         if len(set(names)) != len(names):
@@ -136,8 +189,14 @@ class Checker:
         ports = self.ports.get(bid)
         return ports.get(name) if ports else {"name": name, "dir": "bi", "domain": "signal", "signal": "se"}
 
+    def is_custom(self, bid):
+        """Custom blocks and sheets pack/unpack I/Q pairs."""
+        t = self.blocks[bid]["type"]
+        return t in ("custom", "sheet") or t not in SYMBOLS
+
     def propagate_iq(self, conns):
-        """Blocks downstream of split outputs / upstream of merge inputs become I/Q pairs."""
+        """Blocks downstream of split outputs / upstream of merge inputs become I/Q pairs.
+        Custom blocks pack/unpack I/Q, so propagation stops at them."""
         iq = {bid for bid, b in self.blocks.items() if b.get("iq")}
         edges = []
         for f, t in conns:
@@ -150,7 +209,7 @@ class Checker:
         fwd = [t[0] for f, t, pf, pt in edges if f[0] not in iq and rail_of(pf) and not rail_of(pt) and sig(pf, pt)]
         while fwd:
             bid = fwd.pop()
-            if bid in iq:
+            if bid in iq or self.is_custom(bid):
                 continue
             iq.add(bid)
             fwd += [t[0] for f, t, pf, pt in edges if f[0] == bid and not rail_of(pt) and sig(pf, pt)]
@@ -158,7 +217,7 @@ class Checker:
         back = [f[0] for f, t, pf, pt in edges if t[0] not in iq and rail_of(pt) and not rail_of(pf) and sig(pf, pt)]
         while back:
             bid = back.pop()
-            if bid in iq:
+            if bid in iq or self.is_custom(bid):
                 continue
             iq.add(bid)
             back += [f[0] for f, t, pf, pt in edges if t[0] == bid and not rail_of(pf) and sig(pf, pt)]
@@ -166,12 +225,14 @@ class Checker:
 
     def check_connections(self):
         conns = []
+        c_domain = {}
         for ci, c in enumerate(self.doc.get("connections", [])):
             if not isinstance(c, dict) or "from" not in c or "to" not in c:
                 self.err(f"connection {ci + 1}: needs from and to")
                 continue
             f, t = self.parse_ref(c["from"], ci), self.parse_ref(c["to"], ci)
             if f and t:
+                c_domain[(f, t)] = c_domain[(t, f)] = c.get("domain")
                 if f[0] == t[0]:
                     self.err(f"connection {ci + 1}: {c['from']} → {c['to']} connects a block to itself")
                 conns.append((f, t))
@@ -186,18 +247,23 @@ class Checker:
                 self.err(f"{name}: input connected to input")
             if pf["signal"] != pt["signal"]:
                 self.warn(f"{name}: single-ended ↔ differential (add a balun, or set both blocks' signal the same)")
+            ka, kb = KIND.get(pf["domain"]), KIND.get(pt["domain"])
+            if ka and kb and ka != kb and not c_domain.get((f, t)):
+                fix = "add an ADC/DAC, or set the block's domain" if "analog" in (ka, kb) else "set both blocks to the same domain"
+                self.warn(f"{name}: {ka} ↔ {kb}; {fix}")
             f_iq, t_iq = f[0] in iq, t[0] in iq
             aux = pf["domain"] in AUX or pt["domain"] in AUX
-            if t_iq and not f_iq and not (rail_of(pf) or t[1] or aux):
+            if t_iq and not f_iq and not (rail_of(pf) or t[1] or aux or self.is_custom(f[0])):
                 self.err(f"{name}: a single path can't feed an I/Q pair; start I/Q at a split block (iq_demod, ddc) or pick a rail with {t[0]}:i.{t[2]}")
-            if f_iq and not t_iq and not (rail_of(pt) or f[1]):
+            if f_iq and not t_iq and not (rail_of(pt) or f[1] or self.is_custom(t[0])):
                 self.err(f"{name}: an I/Q pair can only end at a merge block (iq_mod, duc) or a chosen rail")
             # Count drivers per drawn input (per rail for I/Q pairs).
             if pt["dir"] == "in":
                 if f_iq and t_iq and not (f[1] or t[1]):
                     rails = ["i", "q"]
                 elif t_iq:
-                    rails = [t[1] or rail_of(pf) or f[1] or "i"] if not aux else ["i", "q"]
+                    unpack = aux or (self.is_custom(f[0]) and not (rail_of(pf) or t[1]))
+                    rails = ["i", "q"] if unpack else [t[1] or rail_of(pf) or f[1] or "i"]
                 else:
                     rails = [None]
                 for r in rails:
@@ -227,6 +293,64 @@ class Checker:
             loc = "/".join(str(p) for p in e.path) or "/"
             self.err(f"schema: {loc}: {e.message}")
 
+    def check_sheets(self):
+        """Each sheet is checked like a page; sheets must not contain themselves."""
+        sheets = self.sheets()
+        for name, sh in sheets.items():
+            if not ID_RE.match(name):
+                self.err(f'sheets.{name}: sheet names use letters, digits, _ and - and start with a letter or _')
+            if not isinstance(sh, dict) or not isinstance(sh.get("blocks"), list):
+                self.err(f'sheets.{name}: needs a "blocks" array')
+                continue
+            sub = Checker(sh, self.root, f"sheet {name}: ")
+            sub.resolve_blocks()
+            sub.check_params()
+            sub.check_connections()
+            sub.check_groups()
+            self.errors += sub.errors
+            self.warnings += sub.warnings
+            if not any(isinstance(b, dict) and b.get("type") in ("port_in", "port_out") for b in sh["blocks"]):
+                self.warn(f"sheet {name}: has no port_in / port_out blocks, so sheet blocks using it have no ports")
+
+        def uses(name, stack):
+            for b in sheets.get(name, {}).get("blocks", []):
+                inner = isinstance(b, dict) and b.get("type") == "sheet" and b.get("sheet")
+                if not inner or inner not in sheets:
+                    continue
+                if inner in stack:
+                    return stack + [inner]
+                loop = uses(inner, stack + [inner])
+                if loop:
+                    return loop
+            return None
+
+        reported = set()
+        for name in sheets:
+            loop = uses(name, [name])
+            if loop and loop[-1] not in reported:
+                reported.add(loop[-1])
+                self.err(f'sheet "{loop[-1]}" contains itself ({" → ".join(loop)})')
+        used = {b.get("sheet") for page in [self.doc, *sheets.values()] if isinstance(page, dict) for b in page.get("blocks", []) if isinstance(b, dict) and b.get("type") == "sheet"}
+        for name in sheets:
+            if name not in used:
+                self.warn(f'sheet {name}: not used by any sheet block')
+
+    def check_analysis(self):
+        a = self.doc.get("analysis")
+        if not isinstance(a, dict):
+            return
+        for ref in a.get("path") or []:
+            *outer, last = str(ref).split("/")
+            blocks, ok = self.doc.get("blocks", []), True
+            for sb in outer:
+                b = next((x for x in blocks if isinstance(x, dict) and x.get("id") == sb and x.get("type") == "sheet"), None)
+                if not b or b.get("sheet") not in self.sheets():
+                    ok = False
+                    break
+                blocks = self.sheets()[b["sheet"]].get("blocks", [])
+            if not ok or not any(isinstance(x, dict) and x.get("id") == last.split(":")[0] for x in blocks):
+                self.warn(f'analysis.path: "{ref}" is not a block (inside a sheet, write sheetBlockId/blockId)')
+
     def run(self):
         d = self.doc
         if not isinstance(d, dict) or not isinstance(d.get("blocks"), list):
@@ -242,6 +366,8 @@ class Checker:
         self.check_params()
         self.check_connections()
         self.check_groups()
+        self.check_sheets()
+        self.check_analysis()
         return self
 
 

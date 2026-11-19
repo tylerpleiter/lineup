@@ -4,13 +4,15 @@
 
 import data from '../../symbols/aliases.json';
 import { formatRef, parseRef } from './expand';
-import { normDomain, type Block, type LineupDoc, type PortDef } from './types';
+import { normDomain, type Block, type BlockDomain, type LineupDoc, type Params, type PortDef } from './types';
 
 export interface Alias {
   type: string;
   label?: string;
   variant?: string;
   flip?: boolean;
+  domain?: BlockDomain;
+  params?: Params;
   /** Alias port name → target port name. */
   ports?: Record<string, string>;
   /** Ports for aliases of custom blocks. */
@@ -27,6 +29,8 @@ export function applyAlias(b: Block): Record<string, string> | undefined {
   if (a.label !== undefined && b.label === undefined) b.label = a.label;
   if (a.variant && b.variant === undefined) b.variant = a.variant;
   if (a.flip && b.flip === undefined) b.flip = true;
+  if (a.domain && b.domain === undefined) b.domain = a.domain;
+  if (a.params) for (const [k, v] of Object.entries(a.params)) if (b.params?.[k] === undefined) b.params = { ...(b.params ?? {}), [k]: v };
   if (a.customPorts && !b.ports) b.ports = a.customPorts.map((p) => ({ signal: 'se', ...p }));
   return a.ports;
 }

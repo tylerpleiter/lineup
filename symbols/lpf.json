@@ -37,5 +37,6 @@
       "fill": "M4.7,0.7 L4.53,1.44 L4.04,1.09 Z"
     }
   },
-  "description": "Low-pass filter; label it AAF, reconstruction…"
+  "description": "Low-pass filter; label it AAF, reconstruction…",
+  "dsp": true
 }

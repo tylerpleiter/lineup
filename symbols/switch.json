@@ -1,0 +1,18 @@
+{
+  "id": "switch",
+  "name": "Switch (SPnT)",
+  "category": "passive",
+  "generator": "switch",
+  "size": [
+    6,
+    6
+  ],
+  "body": "",
+  "ports": [],
+  "params": {
+    "throws": 2,
+    "il": null
+  },
+  "label": "",
+  "description": "Single-pole switch; set throws (2–8) for SPDT, SP3T, SP4T…"
+}

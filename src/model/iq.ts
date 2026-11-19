@@ -2,10 +2,10 @@
 // keeping connections in their shortest form.
 
 import { formatRef, parseRef, type Ref } from './expand';
-import { symbolFor } from './symbols';
+import { symbolFor, SYMBOLS } from './symbols';
 import { RAIL_PITCH, railOf, type Block, type Connection, type Domain, type LineupDoc, type PortDef, type Rail } from './types';
 
-const SIGNAL_DOMAINS: Domain[] = ['signal', 'digital'];
+const SIGNAL_DOMAINS: Domain[] = ['signal', 'digital', 'complex'];
 const isRail = (n: string): n is Rail => n === 'i' || n === 'q';
 /** Rail carried by a port reference (by its symbol's port def), if any. */
 function refRail(doc: LineupDoc, r: Ref): Rail | undefined {
@@ -46,7 +46,8 @@ export function propagateIQ(doc: LineupDoc): string[] {
     return SIGNAL_DOMAINS.includes(d);
   };
   const mark = (b: Block) => {
-    if (b.iq) return false;
+    // Custom blocks pack/unpack I/Q (serializers, FPGA blocks): propagation stops there.
+    if (b.iq || b.type === 'custom' || b.type === 'sheet' || !SYMBOLS[b.type]) return false;
     b.iq = true;
     changed.push(b.id);
     return true;

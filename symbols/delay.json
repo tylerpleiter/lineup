@@ -24,16 +24,19 @@
       "side": "l",
       "at": 3,
       "dir": "in",
-      "signal": "se"
+      "signal": "se",
+      "domain": "digital"
     },
     {
       "name": "out",
       "side": "r",
       "at": 3,
       "dir": "out",
-      "signal": "se"
+      "signal": "se",
+      "domain": "digital"
     }
   ],
   "params": {},
-  "label": ""
+  "label": "",
+  "dsp": true
 }

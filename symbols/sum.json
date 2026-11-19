@@ -25,7 +25,8 @@
       "at": 3,
       "dir": "in",
       "signal": "se",
-      "lead": 1.5
+      "lead": 1.5,
+      "domain": "digital"
     },
     {
       "name": "b",
@@ -33,7 +34,8 @@
       "at": 3,
       "dir": "in",
       "signal": "se",
-      "lead": 1.5
+      "lead": 1.5,
+      "domain": "digital"
     },
     {
       "name": "out",
@@ -41,9 +43,11 @@
       "at": 3,
       "dir": "out",
       "signal": "se",
-      "lead": 1.5
+      "lead": 1.5,
+      "domain": "digital"
     }
   ],
   "params": {},
-  "label": ""
+  "label": "",
+  "dsp": true
 }
